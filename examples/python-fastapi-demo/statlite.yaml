@@ -1,0 +1,14 @@
+server:
+  listen: "127.0.0.1:9091"
+
+storage:
+  sqlite_path: "./statlite-fastapi-demo.sqlite"
+
+polling:
+  interval: "10s"
+  timeout: "5s"
+
+targets:
+  - name: "python-fastapi-demo"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:8000/statlite/metrics"
