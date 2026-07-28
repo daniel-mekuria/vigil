@@ -69,6 +69,7 @@ For implementation work:
 * avoid speculative abstractions
 * make errors descriptive
 * keep docs in sync when behavior changes
+* when the active implementation plan specifies an issue number, include that issue reference (for example, `#14`) in every related commit message
 
 For large or ambiguous changes, propose the smallest independently testable slice first.
 
