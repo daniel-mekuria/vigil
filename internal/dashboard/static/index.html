@@ -784,12 +784,12 @@ function statusLabel(value) {
 function targetTypeHelp(value) {
   switch (String(value || "").toLowerCase()) {
   case "spring":
-    return "Monitors a Spring Boot application through Actuator health, HTTP traffic, latency, CPU, JVM heap, and process start time.";
+    return "Monitors a Spring Boot application through Spring Boot Actuator.";
   case "statlite-metrics":
-    return "Monitors an application through its statlite-metrics/v1 JSON endpoint for health, HTTP traffic, latency, CPU, runtime memory, uptime, and process start time.";
+    return "Monitors an application through its statlite-metrics/v1 JSON endpoint.";
   case "statlite-health":
   case "statlite":
-    return "Monitors another StatLite instance through /healthz for self-health, HTTP traffic, CPU, runtime memory, uptime, and process start time.";
+    return "Monitors another StatLite instance through its /healthz self-health endpoint.";
   default:
     return "Collector details are unavailable for this target type.";
   }
