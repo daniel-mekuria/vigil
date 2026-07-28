@@ -1,5 +1,10 @@
 # Configuration
 
+StatLite supports Spring Boot Actuator and the lightweight StatLite Metrics JSON
+format for small applications that need basic health, traffic, latency, CPU,
+and runtime memory monitoring without a full observability stack. StatLite is
+not a Prometheus/Grafana replacement.
+
 StatLite loads `statlite.yaml` by default. Override with `--config`:
 
 ```bash
@@ -8,7 +13,9 @@ StatLite loads `statlite.yaml` by default. Override with `--config`:
 statlite --config /etc/statlite/config.yaml
 ```
 
-See `examples/` for starter templates (Actuator, multi-target, self-monitoring) and `examples/spring-actuator-demo/` for a standalone Spring Boot demo app.
+See `examples/` for starter templates (Actuator, StatLite Metrics, multi-target,
+self-monitoring), `examples/python-fastapi-demo/` for a runnable FastAPI app,
+and `examples/spring-actuator-demo/` for a standalone Spring Boot demo app.
 
 ## Server
 
@@ -101,11 +108,31 @@ StatLite strips credentials from source endpoints before showing them in the das
 ```yaml
 targets:
   - name: "statlite-self"
-    type: "statlite"
+    type: "statlite-health"
     url: "http://127.0.0.1:9090/healthz"
 ```
 
-`type: "statlite"` polls another StatLite (or this process) via `/healthz`. It is intended for cheap self-monitoring **only**. It is not a general stable metrics protocol for other applications.
+`type: "statlite-health"` polls another StatLite (or this process) via
+`/healthz`. It is intended for cheap self-monitoring **only**. The legacy
+`type: "statlite"` spelling is accepted as an alias. It is not a general
+metrics protocol for other applications.
+
+### StatLite Metrics v1
+
+```yaml
+targets:
+  - name: "python-demo"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:8000/statlite/metrics"
+```
+
+`statlite-metrics` performs one bounded JSON GET per poll and validates the
+fixed `statlite-metrics/v1` profile. The response requires `schema` equal to
+`statlite-metrics/v1` and a non-empty top-level `status`; optional health,
+traffic, latency, CPU, uptime, start-time, and runtime-memory fields are
+normalized when valid. Unknown fields are ignored, malformed optional values
+become warnings, and there is no runtime-neutral maximum-memory field. Basic
+Auth is not part of v1.
 
 Root `statlite.yaml` uses this pattern so Quick Start works with no extra config. The first poll may fail until the HTTP server is listening; later polls should succeed.
 
@@ -128,8 +155,9 @@ Selected target and time range are stored in the query string, so you can bookma
 |------|---------|
 | `statlite.yaml` (repo root) | Default Quick Start — monitors StatLite itself |
 | `examples/actuator.yaml` | Single Spring Boot Actuator target with Basic Auth placeholders |
-| `examples/statlite.yaml` | Monitor another StatLite instance |
-| `examples/multi-target.yaml` | Illustrative multi-target mix (Actuator + self) |
+| `examples/statlite.yaml` | Monitor another StatLite instance with `statlite-health` |
+| `examples/multi-target.yaml` | Illustrative multi-target mix (Actuator + StatLite Metrics + self) |
+| `examples/python-fastapi-demo/` | Runnable FastAPI StatLite Metrics v1 demo |
 | `examples/spring-actuator-demo/` | Standalone Spring Boot demo app that emits Actuator and Micrometer metrics |
 
 ## Systemd

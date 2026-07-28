@@ -21,5 +21,10 @@ targets:
 
   # This is only useful as a demo target.
   - name: "statlite-self"
-    type: "statlite"
+    type: "statlite-health"
     url: "http://127.0.0.1:9090/healthz"
+
+  # Fixed StatLite Metrics v1 application profile (illustrative endpoint).
+  - name: "python-demo"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:8000/statlite/metrics"

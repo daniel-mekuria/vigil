@@ -345,10 +345,42 @@ func TestStatliteExampleConfigsLoad(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Load(%q) error = %v", path, err)
 			}
-			if cfg.Targets[0].Type != "statlite" {
-				t.Fatalf("Targets[0].Type = %q, want statlite", cfg.Targets[0].Type)
+			if cfg.Targets[0].Type != TargetTypeStatliteHealth {
+				t.Fatalf("Targets[0].Type = %q, want statlite-health", cfg.Targets[0].Type)
 			}
 		})
+	}
+}
+
+func TestFastAPIExampleConfigLoads(t *testing.T) {
+	path := filepath.Join("..", "..", "examples/python-fastapi-demo/statlite.yaml")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load(%q) error = %v", path, err)
+	}
+	if len(cfg.Targets) != 1 {
+		t.Fatalf("Targets = %d, want 1", len(cfg.Targets))
+	}
+	target := cfg.Targets[0]
+	if target.Type != TargetTypeStatliteMetrics || target.URL != "http://127.0.0.1:8000/statlite/metrics" {
+		t.Fatalf("target = %#v, want FastAPI statlite-metrics target", target)
+	}
+}
+
+func TestMultiTargetExampleConfigLoads(t *testing.T) {
+	path := filepath.Join("..", "..", "examples/multi-target.yaml")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load(%q) error = %v", path, err)
+	}
+	if len(cfg.Targets) != 3 {
+		t.Fatalf("Targets = %d, want 3", len(cfg.Targets))
+	}
+	wantTypes := []string{TargetTypeSpring, TargetTypeStatliteHealth, TargetTypeStatliteMetrics}
+	for i, want := range wantTypes {
+		if cfg.Targets[i].Type != want {
+			t.Fatalf("Targets[%d].Type = %q, want %q", i, cfg.Targets[i].Type, want)
+		}
 	}
 }
 
