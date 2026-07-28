@@ -188,6 +188,33 @@ targets:
 	}
 }
 
+func TestLoadAcceptsNonSpringTargetTypes(t *testing.T) {
+	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+		t.Run(targetType, func(t *testing.T) {
+			path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9091"
+storage:
+  sqlite_path: "./statlite-self.sqlite"
+polling:
+  interval: "30s"
+targets:
+  - name: "target"
+    type: "`+targetType+`"
+    url: "http://127.0.0.1:9090/healthz"
+`)
+
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if cfg.Targets[0].Type != targetType {
+				t.Fatalf("Targets[0].Type = %q, want %q", cfg.Targets[0].Type, targetType)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsDuplicateTargetNamesAfterTrimming(t *testing.T) {
 	path := writeConfig(t, `
 server:
@@ -291,6 +318,25 @@ targets:
 	}
 }
 
+func TestTargetDisplayMetadataUsesSanitizedURLForNonSpringTypes(t *testing.T) {
+	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+		t.Run(targetType, func(t *testing.T) {
+			target := TargetConfig{
+				Name: "target",
+				Type: targetType,
+				URL:  "http://user:secret@example.com/statlite/metrics",
+			}
+			metadata := target.DisplayMetadata()
+			if metadata.Endpoint != "http://example.com/statlite/metrics" || metadata.EndpointSource != "url" {
+				t.Fatalf("DisplayMetadata() = %#v, want sanitized url endpoint", metadata)
+			}
+			if metadata.Type != targetType {
+				t.Fatalf("DisplayMetadata().Type = %q, want configured type %q", metadata.Type, targetType)
+			}
+		})
+	}
+}
+
 func TestStatliteExampleConfigsLoad(t *testing.T) {
 	for _, name := range []string{"examples/statlite.yaml", "statlite.yaml"} {
 		t.Run(name, func(t *testing.T) {
@@ -327,6 +373,11 @@ targets:
 	if !strings.Contains(err.Error(), "unsupported type") {
 		t.Fatalf("Load() error = %q, want unsupported type", err)
 	}
+	for _, targetType := range []string{"spring", "statlite-metrics", "statlite-health", "statlite"} {
+		if !strings.Contains(err.Error(), targetType) {
+			t.Fatalf("Load() error = %q, want supported type %q", err, targetType)
+		}
+	}
 }
 
 func TestLoadRejectsStatliteTargetWithoutURL(t *testing.T) {
@@ -348,6 +399,63 @@ targets:
 	}
 	if !strings.Contains(err.Error(), "url is required") {
 		t.Fatalf("Load() error = %q, want url required", err)
+	}
+}
+
+func TestLoadRejectsNonSpringTargetsWithoutURL(t *testing.T) {
+	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+		t.Run(targetType, func(t *testing.T) {
+			path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9090"
+storage:
+  sqlite_path: "./statlite.sqlite"
+polling:
+  interval: "5m"
+targets:
+  - name: "target"
+    type: "`+targetType+`"
+`)
+
+			_, err := Load(path)
+			if err == nil {
+				t.Fatal("Load() error = nil, want error")
+			}
+			if !strings.Contains(err.Error(), "url is required") || !strings.Contains(err.Error(), targetType) {
+				t.Fatalf("Load() error = %q, want URL requirement for %q", err, targetType)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsAuthForNonSpringTargets(t *testing.T) {
+	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+		t.Run(targetType, func(t *testing.T) {
+			path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9090"
+storage:
+  sqlite_path: "./statlite.sqlite"
+polling:
+  interval: "5m"
+targets:
+  - name: "target"
+    type: "`+targetType+`"
+    url: "http://example.com/metrics"
+    auth:
+      type: "basic"
+      username: "user"
+      password: "secret"
+`)
+
+			_, err := Load(path)
+			if err == nil {
+				t.Fatal("Load() error = nil, want error")
+			}
+			if !strings.Contains(err.Error(), "currently supported only for type spring") {
+				t.Fatalf("Load() error = %q, want spring-only auth error", err)
+			}
+		})
 	}
 }
 

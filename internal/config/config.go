@@ -12,6 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	TargetTypeSpring          = "spring"
+	TargetTypeStatliteMetrics = "statlite-metrics"
+	TargetTypeStatliteHealth  = "statlite-health"
+	TargetTypeStatliteLegacy  = "statlite"
+)
+
 type Config struct {
 	Server  ServerConfig   `yaml:"server"`
 	Storage StorageConfig  `yaml:"storage"`
@@ -138,24 +145,24 @@ func (c *Config) validate() error {
 
 		targetType := t.Type
 		if targetType == "" {
-			targetType = "spring"
+			targetType = TargetTypeSpring
 			c.Targets[i].Type = targetType
 		}
 		switch targetType {
-		case "spring":
+		case TargetTypeSpring:
 			if t.ActuatorBaseURL == "" {
 				return fmt.Errorf("targets[%d].actuator_base_url is required", i)
 			}
-		case "statlite":
+		case TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy:
 			if t.URL == "" {
-				return fmt.Errorf("targets[%d].url is required for type statlite", i)
+				return fmt.Errorf("targets[%d].url is required for type %s", i, targetType)
 			}
 		default:
-			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite)", i, targetType)
+			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite-metrics, statlite-health, statlite)", i, targetType)
 		}
 		if t.Auth != nil {
-			if targetType != "spring" {
-				return fmt.Errorf("targets[%d].auth is only supported for type spring", i)
+			if targetType != TargetTypeSpring {
+				return fmt.Errorf("targets[%d].auth is currently supported only for type spring", i)
 			}
 			if t.Auth.Type != "basic" {
 				return fmt.Errorf("targets[%d].auth.type: unsupported type %q (only 'basic' is supported)", i, t.Auth.Type)
@@ -183,7 +190,7 @@ func (t TargetConfig) DisplayMetadata() TargetDisplayMetadata {
 
 func (t TargetConfig) displayEndpoint() (string, string) {
 	switch t.Type {
-	case "statlite":
+	case TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy:
 		return t.URL, "url"
 	default:
 		return t.ActuatorBaseURL, "actuator_base_url"
