@@ -441,7 +441,7 @@ pre {
       <div class="canvas-wrap"><canvas id="latency-chart"></canvas></div>
     </div>
     <div class="chart">
-      <div class="chart-head"><h2 class="label-help">Runtime memory <button type="button" class="help" aria-label="Runtime memory help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Current managed runtime heap or allocator usage. For Spring targets, this is current JVM heap usage.</span></h2><div id="runtime-note" class="note"></div></div>
+      <div class="chart-head"><h2 class="label-help">Runtime memory <button type="button" class="help" aria-label="Runtime memory help" aria-expanded="false">i</button><span id="runtime-memory-tooltip" class="tooltip" role="tooltip">Current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
       <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
     </div>
   </section>
@@ -684,6 +684,7 @@ function renderTargetContext(targets, selected) {
   document.getElementById("target-endpoint").title = endpoint;
   document.getElementById("target-type").textContent = selected.type || "target";
   document.getElementById("target-type-tooltip").textContent = targetTypeHelp(selected.type);
+  document.getElementById("runtime-memory-tooltip").textContent = runtimeMemoryHelp(selected.type);
   select.classList.toggle("hidden", !multiple);
 
   if (!multiple) return;
@@ -785,6 +786,14 @@ function targetTypeHelp(value) {
     return "Monitored through the Spring Boot Actuator collector.";
   }
   return "Monitored through this collector type.";
+}
+
+function runtimeMemoryHelp(value) {
+  const help = "Current managed runtime heap or allocator usage.";
+  if (String(value || "").toLowerCase() === "spring") {
+    return help + " For this Spring Boot target, Runtime memory is current JVM heap usage.";
+  }
+  return help;
 }
 
 function setText(id, value) {
