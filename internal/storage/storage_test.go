@@ -196,6 +196,68 @@ func TestSeriesComputesCounterDeltasAndAverageLatency(t *testing.T) {
 	assertFloatPointer(t, "ProcessCPUUsage", point.ProcessCPUUsage, 0.2)
 }
 
+func TestSeriesResolvesRuntimeMemoryPerPoll(t *testing.T) {
+	store := openTestStore(t)
+	defer store.Close()
+
+	ctx := context.Background()
+	runStart := time.Date(2026, 7, 7, 9, 0, 0, 0, time.UTC)
+	appRunID, err := store.EnsureAppRun(ctx, "app", &runStart, runStart)
+	if err != nil {
+		t.Fatalf("EnsureAppRun() error = %v", err)
+	}
+
+	firstPoll := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
+	saveSeriesPollSamples(t, store, appRunID, firstPoll, []collector.MetricSample{
+		{Key: "jvm_heap_used_bytes", Kind: collector.MetricKindGauge, Value: 100, Unit: "bytes"},
+		{Key: "process_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.1, Unit: "ratio"},
+	})
+	saveSeriesPollSamples(t, store, appRunID, firstPoll.Add(time.Minute), []collector.MetricSample{
+		{Key: "runtime_heap_used_bytes", Kind: collector.MetricKindGauge, Value: 200, Unit: "bytes"},
+		{Key: "process_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.1, Unit: "ratio"},
+	})
+	saveSeriesPollSamples(t, store, appRunID, firstPoll.Add(2*time.Minute), []collector.MetricSample{
+		{Key: "runtime_heap_used_bytes", Kind: collector.MetricKindGauge, Value: 300, Unit: "bytes"},
+		{Key: "jvm_heap_used_bytes", Kind: collector.MetricKindGauge, Value: 999, Unit: "bytes"},
+		{Key: "process_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.1, Unit: "ratio"},
+	})
+	saveSeriesPollSamples(t, store, appRunID, firstPoll.Add(3*time.Minute), []collector.MetricSample{
+		{Key: "runtime_heap_used_bytes", Kind: collector.MetricKindCounter, Value: 350, Unit: "bytes"},
+		{Key: "jvm_heap_used_bytes", Kind: collector.MetricKindGauge, Value: 400, Unit: "bytes"},
+		{Key: "process_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.1, Unit: "ratio"},
+	})
+	saveSeriesPollSamples(t, store, appRunID, firstPoll.Add(4*time.Minute), []collector.MetricSample{
+		{Key: "jvm_heap_max_bytes", Kind: collector.MetricKindGauge, Value: 500, Unit: "bytes"},
+		{Key: "process_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.1, Unit: "ratio"},
+	})
+
+	wantStoredMemoryRows := map[string]int{
+		"runtime_heap_used_bytes": 3,
+		"jvm_heap_used_bytes":     3,
+		"jvm_heap_max_bytes":      1,
+	}
+	assertStoredMetricKeyCounts(t, store, wantStoredMemoryRows)
+
+	series, err := store.Series(ctx, "app", firstPoll, firstPoll.Add(5*time.Minute))
+	if err != nil {
+		t.Fatalf("Series() error = %v", err)
+	}
+	if len(series.Points) != 5 {
+		t.Fatalf("series points len = %d, want 5", len(series.Points))
+	}
+	assertFloatPointer(t, "historical JVM memory", series.Points[0].HeapUsedBytes, 100)
+	assertFloatPointer(t, "runtime memory", series.Points[1].HeapUsedBytes, 200)
+	assertFloatPointer(t, "preferred runtime memory", series.Points[2].HeapUsedBytes, 300)
+	assertFloatPointer(t, "wrong-kind runtime fallback", series.Points[3].HeapUsedBytes, 400)
+	if series.Points[4].HeapUsedBytes != nil {
+		t.Fatalf("JVM maximum fallback = %v, want nil", *series.Points[4].HeapUsedBytes)
+	}
+
+	// Series reads raw rows only; querying mixed history must not rewrite or
+	// migrate either the neutral or historical JVM samples.
+	assertStoredMetricKeyCounts(t, store, wantStoredMemoryRows)
+}
+
 func TestPing(t *testing.T) {
 	store := openTestStore(t)
 	defer store.Close()
@@ -629,7 +691,7 @@ func saveSeriesPoll(t *testing.T, store *Store, appRunID int64, startedAt time.T
 		switch key {
 		case "http_request_time_total_seconds":
 			unit = "seconds"
-		case "jvm_heap_used_bytes":
+		case "runtime_heap_used_bytes", "jvm_heap_used_bytes", "jvm_heap_max_bytes":
 			kind = collector.MetricKindGauge
 			unit = "bytes"
 		case "process_cpu_usage":
@@ -638,6 +700,11 @@ func saveSeriesPoll(t *testing.T, store *Store, appRunID int64, startedAt time.T
 		}
 		samples = append(samples, collector.MetricSample{Key: key, Kind: kind, Value: value, Unit: unit})
 	}
+	saveSeriesPollSamples(t, store, appRunID, startedAt, samples)
+}
+
+func saveSeriesPollSamples(t *testing.T, store *Store, appRunID int64, startedAt time.Time, samples []collector.MetricSample) {
+	t.Helper()
 	result := &collector.CollectionResult{
 		TargetName:     "app",
 		PollStartedAt:  startedAt,
@@ -647,6 +714,19 @@ func saveSeriesPoll(t *testing.T, store *Store, appRunID int64, startedAt time.T
 	}
 	if _, err := store.SaveCollectionResultWithAppRun(context.Background(), result, &appRunID); err != nil {
 		t.Fatalf("SaveCollectionResultWithAppRun(%s) error = %v", startedAt, err)
+	}
+}
+
+func assertStoredMetricKeyCounts(t *testing.T, store *Store, want map[string]int) {
+	t.Helper()
+	for key, wantCount := range want {
+		var got int
+		if err := store.db.QueryRow("SELECT COUNT(*) FROM metric_samples WHERE metric_key = ?", key).Scan(&got); err != nil {
+			t.Fatalf("count metric key %s: %v", key, err)
+		}
+		if got != wantCount {
+			t.Fatalf("metric key %s count = %d, want %d", key, got, wantCount)
+		}
 	}
 }
 

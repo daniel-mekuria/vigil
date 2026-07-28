@@ -441,7 +441,7 @@ pre {
       <div class="canvas-wrap"><canvas id="latency-chart"></canvas></div>
     </div>
     <div class="chart">
-      <div class="chart-head"><h2>Runtime</h2><div id="runtime-note" class="note"></div></div>
+      <div class="chart-head"><h2 class="label-help">Runtime memory <button type="button" class="help" aria-label="Runtime memory help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Current managed runtime heap or allocator usage. For Spring targets, this is current JVM heap usage.</span></h2><div id="runtime-note" class="note"></div></div>
       <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
     </div>
   </section>
@@ -549,7 +549,7 @@ function buildCharts() {
   state.charts.runtime = new Chart(document.getElementById("runtime-chart"), {
     type: "line",
     data: { labels: [], datasets: [
-      { label: "Heap MB", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
+      { label: "Runtime memory MB", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
       { label: "CPU %", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
     ] },
     options: runtimeOptions()

@@ -70,12 +70,23 @@ func TestStatliteHealthzCollectorCollectsNormalizedSamples(t *testing.T) {
 	assertSample(t, result, "http_requests_total", MetricKindCounter, 1234, "requests")
 	assertSample(t, result, "http_404_total", MetricKindCounter, 12, "requests")
 	assertSample(t, result, "http_5xx_total", MetricKindCounter, 3, "requests")
-	assertSample(t, result, "jvm_heap_used_bytes", MetricKindGauge, 7340032, "bytes")
+	assertSample(t, result, "runtime_heap_used_bytes", MetricKindGauge, 7340032, "bytes")
 	assertSample(t, result, "process_uptime", MetricKindGauge, 86400, "seconds")
 	assertSample(t, result, "process_start_time", MetricKindGauge, 1783332000, "unix_seconds")
 	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 0.25, "ratio")
 	assertSample(t, result, "statlite_memory_sys_bytes", MetricKindGauge, 20971520, "bytes")
 	assertSample(t, result, "statlite_goroutines", MetricKindGauge, 18, "goroutines")
+	assertSampleKeys(t, result, []string{
+		"http_requests_total",
+		"http_404_total",
+		"http_5xx_total",
+		"runtime_heap_used_bytes",
+		"process_uptime",
+		"process_start_time",
+		"process_cpu_usage",
+		"statlite_memory_sys_bytes",
+		"statlite_goroutines",
+	})
 	if len(result.Events) != 0 {
 		t.Fatalf("Events = %#v, want none", result.Events)
 	}

@@ -26,6 +26,7 @@ func (s *Store) Series(ctx context.Context, targetName string, start, end time.T
 		"http_4xx_total",
 		"http_5xx_total",
 		"http_request_time_total_seconds",
+		"runtime_heap_used_bytes",
 		"jvm_heap_used_bytes",
 		"process_cpu_usage",
 	}
@@ -42,9 +43,9 @@ JOIN targets t ON t.id = p.target_id
 JOIN metric_samples ms ON ms.poll_id = p.id
 WHERE t.name = ?
   AND p.started_at <= ?
-  AND ms.metric_key IN (?, ?, ?, ?, ?, ?, ?)
+  AND ms.metric_key IN (?, ?, ?, ?, ?, ?, ?, ?)
 ORDER BY p.started_at ASC, p.id ASC, ms.metric_key ASC
-`, targetName, formatTime(end), keys[0], keys[1], keys[2], keys[3], keys[4], keys[5], keys[6])
+`, targetName, formatTime(end), keys[0], keys[1], keys[2], keys[3], keys[4], keys[5], keys[6], keys[7])
 	if err != nil {
 		return nil, fmt.Errorf("query series samples: %w", err)
 	}
@@ -135,11 +136,18 @@ func buildSeriesPoint(poll *pollSamples, previous map[string]counterValue, start
 		value := *requestTimeDelta / *requestDelta
 		point.AverageLatencySeconds = &value
 	}
-	point.HeapUsedBytes = gaugeValue(poll, "jvm_heap_used_bytes")
+	point.HeapUsedBytes = runtimeMemoryValue(poll)
 	point.ProcessCPUUsage = gaugeValue(poll, "process_cpu_usage")
 
 	updatePreviousCounters(poll, previous)
 	return point, !poll.timestamp.Before(start)
+}
+
+func runtimeMemoryValue(poll *pollSamples) *float64 {
+	if value := gaugeValue(poll, "runtime_heap_used_bytes"); value != nil {
+		return value
+	}
+	return gaugeValue(poll, "jvm_heap_used_bytes")
 }
 
 func counterDelta(poll *pollSamples, previous map[string]counterValue, key string) *float64 {

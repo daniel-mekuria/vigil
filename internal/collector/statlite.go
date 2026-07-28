@@ -137,7 +137,7 @@ func (c *StatliteHealthzCollector) Collect(ctx context.Context) (*CollectionResu
 	addOptionalSample(result, "http_requests_total", MetricKindCounter, healthz.Statlite.HTTP.RequestsTotal, "requests")
 	addOptionalSample(result, "http_404_total", MetricKindCounter, healthz.Statlite.HTTP.NotFoundTotal, "requests")
 	addOptionalSample(result, "http_5xx_total", MetricKindCounter, healthz.Statlite.HTTP.ServerErrorTotal, "requests")
-	addOptionalSample(result, "jvm_heap_used_bytes", MetricKindGauge, healthz.Statlite.Runtime.MemoryAllocBytes, "bytes")
+	addOptionalSample(result, "runtime_heap_used_bytes", MetricKindGauge, healthz.Statlite.Runtime.MemoryAllocBytes, "bytes")
 	addOptionalSample(result, "process_uptime", MetricKindGauge, healthz.Statlite.UptimeSeconds, "seconds")
 	addOptionalSample(result, "process_cpu_usage", MetricKindGauge, healthz.Statlite.Runtime.ProcessCPUUsage, "ratio")
 	addOptionalSample(result, "statlite_memory_sys_bytes", MetricKindGauge, healthz.Statlite.Runtime.MemorySysBytes, "bytes")
