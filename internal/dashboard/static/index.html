@@ -782,10 +782,17 @@ function statusLabel(value) {
 }
 
 function targetTypeHelp(value) {
-  if (String(value || "").toLowerCase() === "spring") {
-    return "Monitored through the Spring Boot Actuator collector.";
+  switch (String(value || "").toLowerCase()) {
+  case "spring":
+    return "Monitors a Spring Boot application through Actuator health, HTTP traffic, latency, CPU, JVM heap, and process start time.";
+  case "statlite-metrics":
+    return "Monitors an application through its statlite-metrics/v1 JSON endpoint for health, HTTP traffic, latency, CPU, runtime memory, uptime, and process start time.";
+  case "statlite-health":
+  case "statlite":
+    return "Monitors another StatLite instance through /healthz for self-health, HTTP traffic, CPU, runtime memory, uptime, and process start time.";
+  default:
+    return "Collector details are unavailable for this target type.";
   }
-  return "Monitored through this collector type.";
 }
 
 function runtimeMemoryHelp(value) {
