@@ -39,7 +39,7 @@ func NewMonitorManager(targets []config.TargetConfig, store *storage.Store, time
 
 func newCollector(target config.TargetConfig, timeout time.Duration) (monitor.Collector, error) {
 	switch target.Type {
-	case "", "spring":
+	case "", config.TargetTypeSpring:
 		var auth *collector.BasicAuth
 		if target.Auth != nil {
 			auth = &collector.BasicAuth{
@@ -52,7 +52,13 @@ func newCollector(target config.TargetConfig, timeout time.Duration) (monitor.Co
 			return nil, fmt.Errorf("actuator client: %w", err)
 		}
 		return collector.NewSpringActuatorCollector(target.Name, actuatorClient), nil
-	case "statlite":
+	case config.TargetTypeStatliteMetrics:
+		client, err := collector.NewStatliteMetricsClient(target.URL, timeout)
+		if err != nil {
+			return nil, fmt.Errorf("statlite metrics client: %w", err)
+		}
+		return collector.NewStatliteMetricsCollector(target.Name, client), nil
+	case config.TargetTypeStatliteHealth, config.TargetTypeStatliteLegacy:
 		client, err := collector.NewStatliteHealthzClient(target.URL, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("statlite healthz client: %w", err)
