@@ -8,6 +8,17 @@ import (
 	"github.com/pvrlabs/statlite/internal/dashboard"
 )
 
+func (s *Server) handleDashboardScript(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != dashboard.ScriptPath() {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Write([]byte(dashboard.Script))
+}
+
 func (s *Server) handleStatliteIcon(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/static/statlite-icon.png" {
 		http.NotFound(w, r)

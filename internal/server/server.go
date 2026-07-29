@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pvrlabs/statlite/internal/collector"
+	"github.com/pvrlabs/statlite/internal/dashboard"
 	"github.com/pvrlabs/statlite/internal/monitor"
 )
 
@@ -78,6 +79,7 @@ func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.
 	}
 
 	mux.HandleFunc("/", s.handleRoot)
+	mux.HandleFunc(dashboard.ScriptPath(), s.handleDashboardScript)
 	mux.HandleFunc("/static/statlite-icon.png", s.handleStatliteIcon)
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/statlite/metrics", s.handleStatliteMetrics)

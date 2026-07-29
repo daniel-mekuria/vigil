@@ -42,6 +42,7 @@ func TestRootServesDashboardPage(t *testing.T) {
 	for _, want := range []string{
 		"cdn.jsdelivr.net/npm/chart.js",
 		"/static/statlite-icon.png",
+		`<script src="` + dashboard.ScriptPath() + `" defer></script>`,
 		`<span class="brand-stat">Stat</span><span class="brand-lite">Lite</span>`,
 		"Current status",
 		`aria-label="Target"`,
@@ -58,24 +59,13 @@ func TestRootServesDashboardPage(t *testing.T) {
 		`id="host-cpu-chart"`,
 		`id="host-memory-chart"`,
 		`id="host-disk-chart"`,
-		"host_cpu_usage",
-		"host_memory_usage",
-		"host_disk_usage",
-		"host_disk_used_bytes",
-		"host_disk_total_bytes",
-		"validDiskPoint",
-		"formatBytes",
-		`case "host":`,
 		"Recent events",
-		`fetchJSON("/api/series" + query)`,
-		`fetchJSON("/api/events" + query + "&limit=20")`,
-		`case "unavailable":`,
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("root page missing %q", want)
 		}
 	}
-	for _, legacy := range []string{"statlite-health", `case "statlite":`} {
+	for _, legacy := range []string{"statlite-health", `case "statlite":`, "host_cpu_usage"} {
 		if strings.Contains(content, legacy) {
 			t.Fatalf("root page retains legacy collector help %q", legacy)
 		}
@@ -85,20 +75,25 @@ func TestRootServesDashboardPage(t *testing.T) {
 func TestDashboardRenderSeriesHandlesSparseHostCapabilities(t *testing.T) {
 	const harness = `
 const vm = require("vm");
-let source = process.argv[1].match(/<script>([\s\S]*)<\/script>/)[1];
-source = source.replace(/initializeFromURL\(\);\nbuildCharts\(\);\nrefresh\(\);\nsetInterval\(refresh, 30000\);/, "globalThis.renderForTest = renderSeries; globalThis.chartState = state;");
+const source = process.argv[1];
 const elements = new Map();
 const element = () => ({ hidden: false, textContent: "", className: "", title: "", innerHTML: "", children: [], classList: { toggle() {} }, addEventListener() {}, setAttribute() {} });
 const document = { querySelectorAll() { return []; }, getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); }, addEventListener() {} };
-const sandbox = { document, URLSearchParams, window: { location: { search: "", pathname: "/" }, history: { replaceState() {} } }, setInterval() {} };
+const pending = [];
+const requests = [];
+const fetch = (path, options) => new Promise((resolve) => { requests.push({ path, signal: options.signal }); pending.push(resolve); });
+class AbortController { constructor() { this.signal = { aborted: false }; } abort() { this.signal.aborted = true; } }
+const sandbox = { document, URLSearchParams, window: { location: { search: "", pathname: "/" }, history: { replaceState() {} } }, setInterval() {}, fetch, AbortController, __STATLITE_DASHBOARD_NO_AUTO_INIT__: true };
 vm.runInNewContext(source, sandbox);
 const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
-sandbox.chartState.charts = { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
-const render = sandbox.renderForTest;
+sandbox.statliteDashboardTestHooks.state.charts = { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
+const render = sandbox.statliteDashboardTestHooks.renderSeries;
 const get = (id) => document.getElementById(id);
 render({ points: [{ host_memory_used_bytes: 10 }] });
 if (get("host-section").hidden || get("host-memory-chart-card").hidden) throw new Error("sparse RAM bytes should remain visible");
 if (!get("host-disk-chart-card").hidden) throw new Error("disk needs a valid pair");
+render({ points: [] });
+if (!get("host-section").hidden) throw new Error("a target without host data must clear prior host visibility");
 render({ points: [
   { host_disk_used_bytes: 10, host_disk_total_bytes: 20, host_disk_usage: 0.5 },
   { host_memory_used_bytes: 11 }
@@ -106,10 +101,55 @@ render({ points: [
 if (get("host-disk-note").textContent !== "No data") throw new Error("old disk sample must not be presented as current");
 render({ points: [], current_host_disk: { used_bytes: 30, total_bytes: 60, usage: 0.5 } });
 if (!get("host-disk-note").textContent.includes("30 B / 60 B · 50.0%")) throw new Error("current disk note must use the separate raw observation");
+(async () => {
+  const response = (value) => ({ ok: true, json: () => Promise.resolve(value) });
+  const summary = (name) => ({ selected_target: { name }, targets: [], monitor: {}, latest: {} });
+  const first = sandbox.statliteDashboardTestHooks.refresh();
+  sandbox.statliteDashboardTestHooks.state.target = "beta";
+  const second = sandbox.statliteDashboardTestHooks.refresh();
+  if (!requests[0].signal.aborted) throw new Error("new refresh did not abort the superseded request");
+  pending.splice(3, 3).forEach((resolve, index) => resolve(response(index === 0 ? summary("beta") : index === 1 ? { points: [] } : [])));
+  await second;
+  pending.splice(0, 3).forEach((resolve, index) => resolve(response(index === 0 ? summary("alpha") : index === 1 ? { points: [] } : [])));
+  await first;
+  if (sandbox.statliteDashboardTestHooks.state.target !== "beta") throw new Error("stale refresh overwrote the selected target");
+})().catch((error) => { console.error(error); process.exitCode = 1; });
 `
-	command := exec.Command("node", "-e", harness, dashboard.Page)
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is unavailable; dashboard JavaScript harness skipped")
+	}
+	command := exec.Command(node, "-e", harness, dashboard.Script)
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("dashboard render harness failed: %v\n%s", err, output)
+	}
+}
+
+func TestDashboardScriptServedAsJavaScript(t *testing.T) {
+	statlite := New("127.0.0.1:0", nil)
+	server := httptest.NewServer(statlite.httpServer.Handler)
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + dashboard.ScriptPath())
+	if err != nil {
+		t.Fatalf("dashboard script request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dashboard script status = %d, want 200", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); contentType != "application/javascript; charset=utf-8" {
+		t.Fatalf("dashboard script content-type = %q", contentType)
+	}
+	if cacheControl := resp.Header.Get("Cache-Control"); cacheControl != "public, max-age=31536000, immutable" {
+		t.Fatalf("dashboard script Cache-Control = %q, want immutable caching", cacheControl)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read dashboard script: %v", err)
+	}
+	if string(body) != dashboard.Script {
+		t.Fatal("served dashboard script does not match embedded asset")
 	}
 }
 

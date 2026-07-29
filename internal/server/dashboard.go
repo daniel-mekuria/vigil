@@ -5,6 +5,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/pvrlabs/statlite/internal/dashboard"
 )
@@ -16,5 +17,5 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, dashboard.Page)
+	fmt.Fprint(w, strings.ReplaceAll(dashboard.Page, "{{dashboard_script_url}}", dashboard.ScriptPath()))
 }

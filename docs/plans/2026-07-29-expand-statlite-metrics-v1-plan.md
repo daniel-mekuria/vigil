@@ -98,13 +98,13 @@ The following issue requirements must remain true throughout implementation:
 
 Current Phase: Phase 3 — Capability-based dashboard
 Current Chunk: Chunk 3.2 — Extract and directly test dashboard behavior
-Status: [ ] Not started
+Status: [x] Complete
 
 ### Phase Checklist
 
 - [x] Phase 1 — Contract and normalized data
 - [x] Phase 2 — StatLite endpoint and collector migration
-- [ ] Phase 3 — Capability-based dashboard
+- [x] Phase 3 — Capability-based dashboard
 - [ ] Phase 4 — Config, examples, documentation, and regression verification
 
 ### Blockers
@@ -360,7 +360,7 @@ Done Criteria:
 
 ### Chunk 3.2 — Extract and directly test dashboard behavior
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -369,18 +369,18 @@ Preconditions:
 
 Checklist:
 
-- [ ] (impl) Move the dependency-free dashboard JavaScript from
+- [x] (impl) Move the dependency-free dashboard JavaScript from
   `internal/dashboard/static/index.html` into a separately served static file,
   such as `dashboard.js`, loaded with `defer`. Keep the existing HTML/CSS,
   endpoint contracts, visual behavior, and no-build-step deployment model.
-- [ ] (impl) Keep dashboard state, rendering, formatting, and capability
+- [x] (impl) Keep dashboard state, rendering, formatting, and capability
   predicates explicit and small. Do not introduce a framework, bundler,
   package manager, or client-side routing.
-- [ ] (test) Replace the inline-script extraction harness with direct execution
+- [x] (test) Replace the inline-script extraction harness with direct execution
   of the static JavaScript. Cover sparse RAM bytes, valid and missing disk
   pairs, an omitted latest disk sample, a separate raw current-disk value after
   downsampling, and target changes without stale capability visibility.
-- [ ] (verify) Confirm the root page serves the deferred script with the
+- [x] (verify) Confirm the root page serves the deferred script with the
   expected content type, the dashboard still requests the same JSON endpoints,
   and `go test ./...` passes.
 
@@ -396,7 +396,7 @@ Status: [ ] Not started
 
 Preconditions:
 
-- Chunks 1.1 through 3.1 are complete.
+- Chunks 1.1 through 3.2 are complete.
 - Embedded host fields remain optional capabilities of `statlite-metrics/v1`;
   this chunk does not remove or reject them.
 
