@@ -10,6 +10,6 @@ polling:
   timeout: "5s"
 
 targets:
-  - name: "statlite-local"
-    type: "statlite-health"
-    url: "http://127.0.0.1:9090/healthz"
+  - name: "statlite-self"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:9090/statlite/metrics"

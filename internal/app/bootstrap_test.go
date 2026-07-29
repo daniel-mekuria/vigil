@@ -44,18 +44,6 @@ func TestNewCollectorBuildsConfiguredTargetTypes(t *testing.T) {
 			wantType:   "local host",
 			wantTarget: "*collector.HostCollector",
 		},
-		{
-			name:       "statlite health",
-			target:     config.TargetConfig{Name: "health", Type: config.TargetTypeStatliteHealth, URL: "https://example.com/healthz"},
-			wantType:   "statlite health",
-			wantTarget: "*collector.StatliteHealthzCollector",
-		},
-		{
-			name:       "legacy statlite alias",
-			target:     config.TargetConfig{Name: "legacy", Type: config.TargetTypeStatliteLegacy, URL: "https://example.com/healthz"},
-			wantType:   "legacy statlite",
-			wantTarget: "*collector.StatliteHealthzCollector",
-		},
 	}
 
 	for _, tt := range tests {

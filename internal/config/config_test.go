@@ -164,32 +164,8 @@ targets:
 	}
 }
 
-func TestLoadAcceptsStatliteTarget(t *testing.T) {
-	path := writeConfig(t, `
-server:
-  listen: "127.0.0.1:9091"
-storage:
-  sqlite_path: "./statlite-self.sqlite"
-polling:
-  interval: "30s"
-  timeout: "5s"
-targets:
-  - name: "statlite-local"
-    type: "statlite"
-    url: "http://127.0.0.1:9090/healthz"
-`)
-
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.Targets[0].Type != "statlite" || cfg.Targets[0].URL == "" {
-		t.Fatalf("target = %#v, want statlite URL target", cfg.Targets[0])
-	}
-}
-
 func TestLoadAcceptsNonSpringTargetTypes(t *testing.T) {
-	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+	for _, targetType := range []string{TargetTypeStatliteMetrics} {
 		t.Run(targetType, func(t *testing.T) {
 			path := writeConfig(t, `
 server:
@@ -201,7 +177,7 @@ polling:
 targets:
   - name: "target"
     type: "`+targetType+`"
-    url: "http://127.0.0.1:9090/healthz"
+    url: "http://127.0.0.1:9090/statlite/metrics"
 `)
 
 			cfg, err := Load(path)
@@ -311,37 +287,8 @@ targets:
 	}
 }
 
-func TestTargetDisplayMetadataSanitizesStatliteEndpoint(t *testing.T) {
-	path := writeConfig(t, `
-server:
-  listen: "127.0.0.1:9091"
-storage:
-  sqlite_path: "./statlite-self.sqlite"
-polling:
-  interval: "30s"
-targets:
-  - name: "statlite-local"
-    type: "statlite"
-    url: "http://user:secret@127.0.0.1:9090/healthz"
-`)
-
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	metadata := cfg.Targets[0].DisplayMetadata()
-	if metadata != (TargetDisplayMetadata{
-		Name:           "statlite-local",
-		Type:           "statlite",
-		Endpoint:       "http://127.0.0.1:9090/healthz",
-		EndpointSource: "url",
-	}) {
-		t.Fatalf("DisplayMetadata() = %#v, want sanitized statlite endpoint", metadata)
-	}
-}
-
 func TestTargetDisplayMetadataUsesSanitizedURLForNonSpringTypes(t *testing.T) {
-	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+	for _, targetType := range []string{TargetTypeStatliteMetrics} {
 		t.Run(targetType, func(t *testing.T) {
 			target := TargetConfig{
 				Name: "target",
@@ -367,8 +314,8 @@ func TestStatliteExampleConfigsLoad(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Load(%q) error = %v", path, err)
 			}
-			if cfg.Targets[0].Type != TargetTypeStatliteHealth {
-				t.Fatalf("Targets[0].Type = %q, want statlite-health", cfg.Targets[0].Type)
+			if cfg.Targets[0].Type != TargetTypeStatliteMetrics {
+				t.Fatalf("Targets[0].Type = %q, want statlite-metrics", cfg.Targets[0].Type)
 			}
 		})
 	}
@@ -398,7 +345,7 @@ func TestMultiTargetExampleConfigLoads(t *testing.T) {
 	if len(cfg.Targets) != 3 {
 		t.Fatalf("Targets = %d, want 3", len(cfg.Targets))
 	}
-	wantTypes := []string{TargetTypeSpring, TargetTypeStatliteHealth, TargetTypeStatliteMetrics}
+	wantTypes := []string{TargetTypeSpring, TargetTypeStatliteMetrics, TargetTypeStatliteMetrics}
 	for i, want := range wantTypes {
 		if cfg.Targets[i].Type != want {
 			t.Fatalf("Targets[%d].Type = %q, want %q", i, cfg.Targets[i].Type, want)
@@ -417,7 +364,7 @@ polling:
 targets:
   - name: "app"
     type: "json"
-    url: "http://example.com/healthz"
+    url: "http://example.com/statlite/metrics"
 `)
 
 	_, err := Load(path)
@@ -427,37 +374,15 @@ targets:
 	if !strings.Contains(err.Error(), "unsupported type") {
 		t.Fatalf("Load() error = %q, want unsupported type", err)
 	}
-	for _, targetType := range []string{"spring", "statlite-metrics", "statlite-health", "statlite"} {
+	for _, targetType := range []string{"spring", "statlite-metrics", "host"} {
 		if !strings.Contains(err.Error(), targetType) {
 			t.Fatalf("Load() error = %q, want supported type %q", err, targetType)
 		}
 	}
 }
 
-func TestLoadRejectsStatliteTargetWithoutURL(t *testing.T) {
-	path := writeConfig(t, `
-server:
-  listen: "127.0.0.1:9090"
-storage:
-  sqlite_path: "./statlite.sqlite"
-polling:
-  interval: "5m"
-targets:
-  - name: "statlite"
-    type: "statlite"
-`)
-
-	_, err := Load(path)
-	if err == nil {
-		t.Fatal("Load() error = nil, want error")
-	}
-	if !strings.Contains(err.Error(), "url is required") {
-		t.Fatalf("Load() error = %q, want url required", err)
-	}
-}
-
-func TestLoadRejectsNonSpringTargetsWithoutURL(t *testing.T) {
-	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+func TestLoadRejectsRetiredStatliteTargetTypes(t *testing.T) {
+	for _, targetType := range []string{"statlite-health", "statlite"} {
 		t.Run(targetType, func(t *testing.T) {
 			path := writeConfig(t, `
 server:
@@ -467,7 +392,7 @@ storage:
 polling:
   interval: "5m"
 targets:
-  - name: "target"
+  - name: "statlite"
     type: "`+targetType+`"
 `)
 
@@ -475,15 +400,15 @@ targets:
 			if err == nil {
 				t.Fatal("Load() error = nil, want error")
 			}
-			if !strings.Contains(err.Error(), "url is required") || !strings.Contains(err.Error(), targetType) {
-				t.Fatalf("Load() error = %q, want URL requirement for %q", err, targetType)
+			if !strings.Contains(err.Error(), "unsupported type") {
+				t.Fatalf("Load() error = %q, want unsupported type", err)
 			}
 		})
 	}
 }
 
 func TestLoadRejectsAuthForNonSpringTargets(t *testing.T) {
-	for _, targetType := range []string{TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy} {
+	for _, targetType := range []string{TargetTypeStatliteMetrics} {
 		t.Run(targetType, func(t *testing.T) {
 			path := writeConfig(t, `
 server:

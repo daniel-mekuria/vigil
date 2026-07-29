@@ -11,5 +11,5 @@ polling:
 
 targets:
   - name: "statlite-self"
-    type: "statlite-health"
-    url: "http://127.0.0.1:9090/healthz"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:9090/statlite/metrics"

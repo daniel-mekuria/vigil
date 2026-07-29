@@ -108,14 +108,13 @@ StatLite strips credentials from source endpoints before showing them in the das
 ```yaml
 targets:
   - name: "statlite-self"
-    type: "statlite-health"
-    url: "http://127.0.0.1:9090/healthz"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:9090/statlite/metrics"
 ```
 
-`type: "statlite-health"` polls another StatLite (or this process) via
-`/healthz`. It is intended for cheap self-monitoring **only**. The legacy
-`type: "statlite"` spelling is accepted as an alias. It is not a general
-metrics protocol for other applications.
+`type: "statlite-metrics"` polls another StatLite (or this process) via
+`/statlite/metrics`, the canonical fixed `statlite-metrics/v1` profile. It is
+not a general metrics protocol for other applications.
 
 ### StatLite Metrics v1
 
@@ -144,7 +143,7 @@ Selected target and time range are stored in the query string, so you can bookma
 ## API notes
 
 * `/api/*` is early/internal and not yet a stable public API.
-* `/healthz` exposes process version and readiness. Target poll failures do not mark the process unhealthy; SQLite failure does (`status: "error"`, HTTP 503). See the README section on version and health.
+* `/healthz` exposes process version and readiness. Monitored-target poll failures do not mark the process unhealthy; SQLite failure does (`status: "error"`, HTTP 503). See the README section on version and health.
 
 ## Example files
 
@@ -152,7 +151,7 @@ Selected target and time range are stored in the query string, so you can bookma
 |------|---------|
 | `statlite.yaml` (repo root) | Default Quick Start — monitors StatLite itself |
 | `examples/actuator.yaml` | Single Spring Boot Actuator target with Basic Auth placeholders |
-| `examples/statlite.yaml` | Monitor another StatLite instance with `statlite-health` |
+| `examples/statlite.yaml` | Monitor another StatLite instance with `statlite-metrics` |
 | `examples/multi-target.yaml` | Illustrative multi-target mix (Actuator + StatLite Metrics + self) |
 | `examples/python-fastapi-demo/` | Runnable FastAPI StatLite Metrics v1 demo |
 | `examples/spring-actuator-demo/` | Standalone Spring Boot demo app that emits Actuator and Micrometer metrics |

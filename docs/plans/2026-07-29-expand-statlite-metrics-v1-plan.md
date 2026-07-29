@@ -96,13 +96,13 @@ The following issue requirements must remain true throughout implementation:
 ## Progress
 
 Current Phase: Phase 2 — StatLite endpoint and collector migration
-Current Chunk: Chunk 2.1 — Emit StatLite's canonical profile
+Current Chunk: Chunk 2.2 — Retire the legacy dashboard collector contract
 Status: [x] Complete
 
 ### Phase Checklist
 
 - [x] Phase 1 — Contract and normalized data
-- [ ] Phase 2 — StatLite endpoint and collector migration
+- [x] Phase 2 — StatLite endpoint and collector migration
 - [ ] Phase 3 — Capability-based dashboard
 - [ ] Phase 4 — Config, examples, documentation, and regression verification
 
@@ -281,7 +281,7 @@ Done Criteria:
 
 ### Chunk 2.2 — Retire the legacy dashboard collector contract
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -292,19 +292,19 @@ Preconditions:
 
 Checklist:
 
-- [ ] (impl) Remove `TargetTypeStatliteHealth` and `TargetTypeStatliteLegacy`
+- [x] (impl) Remove `TargetTypeStatliteHealth` and `TargetTypeStatliteLegacy`
   validation/display paths from `internal/config`, and remove legacy collector
   construction from `internal/app/bootstrap.go`.
-- [ ] (impl) Delete `internal/collector/statlite.go` and its specialized tests;
+- [x] (impl) Delete `internal/collector/statlite.go` and its specialized tests;
   remove only tests/config fixtures that exercise the deleted protocol.
-- [ ] (impl) Change root `statlite.yaml` to the required
+- [x] (impl) Change root `statlite.yaml` to the required
   `statlite-self`/`statlite-metrics` `/statlite/metrics` target and update
   `examples/statlite.yaml` and `examples/multi-target.yaml` to eliminate
   healthz targets.
-- [ ] (test) Update config/bootstrap tests to reject removed types, construct
+- [x] (test) Update config/bootstrap tests to reject removed types, construct
   the normal StatLite Metrics collector for self-monitoring, and load every
   changed example configuration.
-- [ ] (verify) Search the code/config/docs tree for `statlite-health`, legacy
+- [x] (verify) Search the code/config/docs tree for `statlite-health`, legacy
   `type: statlite`, and `/healthz` target URLs; remaining `/healthz` references
   must be operational-readiness documentation/tests only.
 

@@ -21,7 +21,7 @@ func TestManagerNamesAndSummariesAreDeterministic(t *testing.T) {
 
 	manager, err := NewManager([]ManagedTarget{
 		{Metadata: TargetMetadata{Name: "alpha", Type: "spring", Endpoint: "http://alpha/actuator", EndpointSource: "actuator_base_url"}, Monitor: alpha},
-		{Metadata: TargetMetadata{Name: "beta", Type: "statlite", Endpoint: "http://beta/healthz", EndpointSource: "url"}, Monitor: beta},
+		{Metadata: TargetMetadata{Name: "beta", Type: "statlite-metrics", Endpoint: "http://beta/statlite/metrics", EndpointSource: "url"}, Monitor: beta},
 	})
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
@@ -151,7 +151,7 @@ func newTestManager(t *testing.T, alpha, beta *Monitor) *Manager {
 	t.Helper()
 	manager, err := NewManager([]ManagedTarget{
 		{Metadata: TargetMetadata{Name: "alpha", Type: "spring", Endpoint: "http://alpha/actuator", EndpointSource: "actuator_base_url"}, Monitor: alpha},
-		{Metadata: TargetMetadata{Name: "beta", Type: "statlite", Endpoint: "http://beta/healthz", EndpointSource: "url"}, Monitor: beta},
+		{Metadata: TargetMetadata{Name: "beta", Type: "statlite-metrics", Endpoint: "http://beta/statlite/metrics", EndpointSource: "url"}, Monitor: beta},
 	})
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)

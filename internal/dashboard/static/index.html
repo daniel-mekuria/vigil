@@ -786,10 +786,7 @@ function targetTypeHelp(value) {
   case "spring":
     return "Monitors a Spring Boot application through its Actuator endpoint.";
   case "statlite-metrics":
-    return "Monitors an application through its statlite-metrics/v1 JSON endpoint.";
-  case "statlite-health":
-  case "statlite":
-    return "Monitors another StatLite instance through its /healthz self-health endpoint.";
+    return "Monitors a StatLite Metrics v1 profile.";
   default:
     return "Collector details are unavailable for this target type.";
   }

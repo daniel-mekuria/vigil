@@ -64,12 +64,6 @@ func newCollectorWithFilesystemPath(target config.TargetConfig, timeout time.Dur
 		return collector.NewStatliteMetricsCollector(target.Name, client), nil
 	case config.TargetTypeHost:
 		return collector.NewHostCollector(target.Name, filesystemPath, nil), nil
-	case config.TargetTypeStatliteHealth, config.TargetTypeStatliteLegacy:
-		client, err := collector.NewStatliteHealthzClient(target.URL, timeout)
-		if err != nil {
-			return nil, fmt.Errorf("statlite healthz client: %w", err)
-		}
-		return collector.NewStatliteHealthzCollector(target.Name, client), nil
 	default:
 		return nil, fmt.Errorf("unsupported target type %q", target.Type)
 	}

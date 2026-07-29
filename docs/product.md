@@ -6,7 +6,7 @@ StatLite is a tiny self-hosted metrics dashboard for small applications and
 VPS deployments, with Spring Boot Actuator as its primary application
 integration. It also supports the fixed
 [`statlite-metrics/v1`](statlite-metrics-v1.md) application profile, and
-StatLite self-health through `statlite-health`.
+StatLite self-monitoring through the canonical `statlite-metrics/v1` profile.
 
 It is intended for solo developers and small teams that need practical
 production visibility without operating Prometheus and Grafana. StatLite is a
@@ -35,16 +35,13 @@ StatLite has three supported target roles:
 
 * `spring` — Spring Boot Actuator and a fixed set of Micrometer metrics. This
   is the default target type when `type` is omitted.
-* `statlite-metrics` — an application integration using the fixed,
-  language-neutral `statlite-metrics/v1` JSON profile. See the
+* `statlite-metrics` — the canonical fixed `statlite-metrics/v1` integration
+  for StatLite and external profile producers. See the
   [producer-facing specification](statlite-metrics-v1.md) for its endpoint
   contract.
-* `statlite-health` — the StatLite-specific `/healthz` integration for cheap
-  self-monitoring of a StatLite instance.
+* `host` — local-only host resource sampling with no remote endpoint.
 
-The legacy `statlite` target type is a compatibility alias for
-`statlite-health`. Spring and StatLite Metrics are application integrations;
-StatLite Health is specifically for StatLite self-monitoring. None of these
+Spring and StatLite Metrics are application integrations. None of these
 boundaries is an arbitrary metrics API.
 
 ## Normalized collection model

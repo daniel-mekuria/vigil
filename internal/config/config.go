@@ -15,8 +15,6 @@ import (
 const (
 	TargetTypeSpring          = "spring"
 	TargetTypeStatliteMetrics = "statlite-metrics"
-	TargetTypeStatliteHealth  = "statlite-health"
-	TargetTypeStatliteLegacy  = "statlite"
 	TargetTypeHost            = "host"
 )
 
@@ -154,7 +152,7 @@ func (c *Config) validate() error {
 			if t.ActuatorBaseURL == "" {
 				return fmt.Errorf("targets[%d].actuator_base_url is required", i)
 			}
-		case TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy:
+		case TargetTypeStatliteMetrics:
 			if t.URL == "" {
 				return fmt.Errorf("targets[%d].url is required for type %s", i, targetType)
 			}
@@ -163,7 +161,7 @@ func (c *Config) validate() error {
 				return fmt.Errorf("targets[%d].type host does not accept url or actuator_base_url", i)
 			}
 		default:
-			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite-metrics, statlite-health, statlite, host)", i, targetType)
+			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite-metrics, host)", i, targetType)
 		}
 		if t.Auth != nil {
 			if targetType != TargetTypeSpring {
@@ -195,7 +193,7 @@ func (t TargetConfig) DisplayMetadata() TargetDisplayMetadata {
 
 func (t TargetConfig) displayEndpoint() (string, string) {
 	switch t.Type {
-	case TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy:
+	case TargetTypeStatliteMetrics:
 		return t.URL, "url"
 	case TargetTypeHost:
 		return "local host", "local"
