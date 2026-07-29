@@ -19,23 +19,29 @@ type hostSampler interface {
 }
 
 type Server struct {
-	httpServer      *http.Server
-	manager         *monitor.Manager
-	retentionDays   int
-	retentionCutoff func() time.Time
-	startedAt       time.Time
-	requestsTotal   atomic.Uint64
-	notFoundTotal   atomic.Uint64
-	clientErrors    atomic.Uint64
-	serverErrors    atomic.Uint64
-	durationTotalNS atomic.Uint64
-	durationMaxNS   atomic.Uint64
-	filesystemPath  string
-	hostSampler     hostSampler
-	cpuMu           sync.Mutex
-	lastCPUAt       time.Time
-	lastCPUSeconds  float64
-	lastCPUUsage    float64
+	httpServer       *http.Server
+	manager          *monitor.Manager
+	retentionDays    int
+	retentionCutoff  func() time.Time
+	startedAt        time.Time
+	requestsTotal    atomic.Uint64
+	notFoundTotal    atomic.Uint64
+	clientErrors     atomic.Uint64
+	serverErrors     atomic.Uint64
+	durationTotalNS  atomic.Uint64
+	durationMaxNS    atomic.Uint64
+	filesystemPath   string
+	hostSampler      hostSampler
+	storageHealthMu  sync.RWMutex
+	storageHealth    string
+	storageCancel    context.CancelFunc
+	storageHealthy   func(context.Context) bool
+	storageAvailable func() bool
+	storageInterval  time.Duration
+	cpuMu            sync.Mutex
+	lastCPUAt        time.Time
+	lastCPUSeconds   float64
+	lastCPUUsage     float64
 }
 
 func New(listen string, mon *monitor.Monitor) *Server {
@@ -76,6 +82,13 @@ func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.
 		startedAt:       time.Now().UTC(),
 		filesystemPath:  filesystemPath,
 		hostSampler:     collector.NewHostSampler(),
+		storageHealth:   initialStorageHealth(manager),
+		storageInterval: storageHealthCheckInterval,
+	}
+	if manager != nil {
+		storageMonitor := manager.PrimaryMonitor()
+		s.storageHealthy = storageMonitor.StorageHealthy
+		s.storageAvailable = storageMonitor.StorageAvailable
 	}
 
 	mux.HandleFunc("/", s.handleRoot)
@@ -111,11 +124,22 @@ func monitorManagerForSingleTarget(mon *monitor.Monitor) (*monitor.Manager, erro
 }
 
 func (s *Server) Start() error {
-	return s.httpServer.ListenAndServe()
+	s.startStorageHealthChecks()
+	err := s.httpServer.ListenAndServe()
+	s.stopStorageHealthChecks()
+	return err
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.stopStorageHealthChecks()
 	return s.httpServer.Shutdown(ctx)
+}
+
+func initialStorageHealth(manager *monitor.Manager) string {
+	if manager == nil {
+		return "unavailable"
+	}
+	return "unknown"
 }
 
 func (s *Server) countRequests(next http.Handler) http.Handler {

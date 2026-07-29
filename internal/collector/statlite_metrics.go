@@ -24,11 +24,12 @@ type StatliteMetricsClient struct {
 }
 
 type StatliteMetricsResponse struct {
-	Schema    string                 `json:"schema"`
-	Status    string                 `json:"status"`
-	StartedAt StatliteMetricsField   `json:"started_at,omitempty"`
-	Metrics   *StatliteMetricsValues `json:"metrics,omitempty"`
-	Raw       json.RawMessage        `json:"raw,omitempty"`
+	Schema         string                 `json:"schema"`
+	Status         string                 `json:"status"`
+	DatabaseStatus StatliteMetricsField   `json:"database_status,omitempty"`
+	StartedAt      StatliteMetricsField   `json:"started_at,omitempty"`
+	Metrics        *StatliteMetricsValues `json:"metrics,omitempty"`
+	Raw            json.RawMessage        `json:"raw,omitempty"`
 }
 
 type StatliteMetricsValues struct {

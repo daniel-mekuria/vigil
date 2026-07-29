@@ -13,6 +13,7 @@ func TestStatliteMetricsCollectorMapsCompleteResponse(t *testing.T) {
 	server := newStatliteMetricsServer(t, http.StatusOK, `{
 		"schema": "statlite-metrics/v1",
 		"status": "UP",
+		"database_status": "UP",
 		"started_at": "2026-07-27T12:00:00-07:00",
 		"target_name": "remote-name-must-be-ignored",
 		"poll_started_at": "2000-01-01T00:00:00Z",
@@ -48,6 +49,9 @@ func TestStatliteMetricsCollectorMapsCompleteResponse(t *testing.T) {
 	}
 	if result.HealthStatus != "UP" {
 		t.Fatalf("HealthStatus = %q, want UP", result.HealthStatus)
+	}
+	if result.DBHealthStatus != "UP" {
+		t.Fatalf("DBHealthStatus = %q, want UP", result.DBHealthStatus)
 	}
 	if result.PollStartedAt.Before(before) || result.PollStartedAt.After(after) {
 		t.Fatalf("PollStartedAt = %v, want local time between %v and %v", result.PollStartedAt, before, after)
@@ -141,6 +145,27 @@ func TestStatliteMetricsCollectorDoesNotWarnForMissingOptionalMetrics(t *testing
 	assertSample(t, result, "http_requests_total", MetricKindCounter, 12, "requests")
 	if len(result.Events) != 0 {
 		t.Fatalf("Events = %#v, want no warnings for missing optional metrics", result.Events)
+	}
+}
+
+func TestStatliteMetricsCollectorWarnsForInvalidDatabaseStatus(t *testing.T) {
+	server := newStatliteMetricsServer(t, http.StatusOK, `{
+		"schema": "statlite-metrics/v1",
+		"status": "UP",
+		"database_status": 42,
+		"started_at": "2026-07-27T19:00:00Z"
+	}`)
+	defer server.Close()
+
+	result, err := NewStatliteMetricsCollector("invalid-db", newTestStatliteMetricsClient(t, server.URL)).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if result.DBHealthStatus != "" {
+		t.Fatalf("DBHealthStatus = %q, want empty", result.DBHealthStatus)
+	}
+	if !hasCollectorEvent(result, "database_status_invalid", "database_status") {
+		t.Fatalf("Events = %#v, want invalid database status warning", result.Events)
 	}
 }
 

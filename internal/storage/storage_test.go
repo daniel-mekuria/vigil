@@ -267,6 +267,19 @@ func TestPing(t *testing.T) {
 	}
 }
 
+func TestAvailableTracksOpenStoreWithoutSQLiteQuery(t *testing.T) {
+	store := openTestStore(t)
+	if !store.Available() {
+		t.Fatal("Available() = false, want true for an open store")
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if store.Available() {
+		t.Fatal("Available() = true, want false after Close")
+	}
+}
+
 func TestPingFailsWhenStoreIsNil(t *testing.T) {
 	var nilStore *Store
 	err := nilStore.Ping(context.Background())

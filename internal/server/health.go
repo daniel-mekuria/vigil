@@ -3,12 +3,18 @@ package server
 // This file exposes lightweight StatLite readiness.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"syscall"
 	"time"
 
 	"github.com/pvrlabs/statlite/internal/version"
+)
+
+const (
+	storageHealthCheckInterval = time.Minute
+	storageHealthCheckTimeout  = time.Second
 )
 
 type HealthResponse struct {
@@ -26,28 +32,20 @@ type StatliteStorageHealth struct {
 //
 // Semantics:
 //   - Top-level status/HTTP code reflect process readiness, not monitored-target health.
-//   - SQLite storage check failure sets status to "error" and returns HTTP 503.
+//   - Cached SQLite storage check failure sets status to "error" and returns HTTP 503.
 //   - When no monitor/manager is configured, storage is reported as "unavailable" and the process stays healthy.
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	now := time.Now().UTC()
 
-	storageStatus := "unavailable"
-	if s.manager != nil {
-		target := s.selectedTarget(r)
-		if target.Monitor.StorageHealthy(r.Context()) {
-			storageStatus = "ok"
-		} else {
-			storageStatus = "error"
-		}
-	}
+	storageStatus := s.storageHealthStatus()
 
 	// Process health is independent of monitored-target poll success/failure.
 	// A failing self-monitor first poll (server not ready yet) must not make
 	// StatLite report itself as permanently unhealthy.
 	processStatus := "ok"
 	httpCode := http.StatusOK
-	if storageStatus == "error" {
+	if storageStatus != "ok" && storageStatus != "unavailable" {
 		processStatus = "error"
 		httpCode = http.StatusServiceUnavailable
 	}
@@ -59,6 +57,73 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 		Timestamp: now.Format(time.RFC3339),
 		Storage:   StatliteStorageHealth{Status: storageStatus},
 	})
+}
+
+func (s *Server) startStorageHealthChecks() {
+	if s.storageHealthy == nil {
+		return
+	}
+
+	s.storageHealthMu.Lock()
+	if s.storageCancel != nil {
+		s.storageHealthMu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.storageCancel = cancel
+	s.storageHealthMu.Unlock()
+
+	s.refreshStorageHealth(ctx)
+	go func() {
+		ticker := time.NewTicker(s.storageInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.refreshStorageHealth(ctx)
+			}
+		}
+	}()
+}
+
+func (s *Server) stopStorageHealthChecks() {
+	s.storageHealthMu.Lock()
+	cancel := s.storageCancel
+	s.storageCancel = nil
+	s.storageHealthMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (s *Server) refreshStorageHealth(parent context.Context) {
+	if s.storageHealthy == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(parent, storageHealthCheckTimeout)
+	defer cancel()
+
+	status := "ok"
+	if !s.storageHealthy(ctx) {
+		status = "error"
+	}
+	s.storageHealthMu.Lock()
+	s.storageHealth = status
+	s.storageHealthMu.Unlock()
+}
+
+func (s *Server) storageHealthStatus() string {
+	if s.storageAvailable == nil {
+		return "unavailable"
+	}
+	if !s.storageAvailable() {
+		return "error"
+	}
+	s.storageHealthMu.RLock()
+	defer s.storageHealthMu.RUnlock()
+	return s.storageHealth
 }
 
 func (s *Server) processCPUUsage(now time.Time) float64 {

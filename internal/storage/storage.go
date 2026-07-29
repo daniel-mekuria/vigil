@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	_ "modernc.org/sqlite"
 )
@@ -16,7 +17,8 @@ import (
 var schemaFS embed.FS
 
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	closed atomic.Bool
 }
 
 func Open(ctx context.Context, path string) (*Store, error) {
@@ -42,7 +44,14 @@ func (s *Store) Close() error {
 	if s == nil || s.db == nil {
 		return nil
 	}
+	s.closed.Store(true)
 	return s.db.Close()
+}
+
+// Available reports local store availability without querying or waiting on SQLite.
+// It confirms only that the store initialized successfully and has not been closed.
+func (s *Store) Available() bool {
+	return s != nil && s.db != nil && !s.closed.Load()
 }
 
 func (s *Store) Ping(ctx context.Context) error {
@@ -51,13 +60,6 @@ func (s *Store) Ping(ctx context.Context) error {
 	}
 	if err := s.db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping sqlite database: %w", err)
-	}
-	var one int
-	if err := s.db.QueryRowContext(ctx, "SELECT 1").Scan(&one); err != nil {
-		return fmt.Errorf("query sqlite health check: %w", err)
-	}
-	if one != 1 {
-		return fmt.Errorf("sqlite health check returned %d", one)
 	}
 	return nil
 }

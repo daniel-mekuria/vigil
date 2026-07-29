@@ -56,11 +56,25 @@ func (c *StatliteMetricsCollector) Collect(ctx context.Context) (*CollectionResu
 	}
 
 	result.HealthStatus = response.Status
+	collectStatliteMetricsDatabaseStatus(result, response.DatabaseStatus)
 	collectStatliteMetricsStartTime(result, response.StartedAt)
 	if response.Metrics != nil {
 		collectStatliteMetricsSamples(result, response.Metrics)
 	}
 	return result, nil
+}
+
+func collectStatliteMetricsDatabaseStatus(result *CollectionResult, field StatliteMetricsField) {
+	if !field.present() {
+		return
+	}
+
+	var status string
+	if err := json.Unmarshal(field.raw, &status); err != nil || strings.TrimSpace(status) == "" {
+		result.addEvent(EventSeverityWarning, "database_status_invalid", "database_status", "statlite metrics database_status must be a non-empty string")
+		return
+	}
+	result.DBHealthStatus = strings.TrimSpace(status)
 }
 
 func collectStatliteMetricsStartTime(result *CollectionResult, field StatliteMetricsField) {

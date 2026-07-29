@@ -21,6 +21,7 @@ A complete response looks like this:
 {
   "schema": "statlite-metrics/v1",
   "status": "UP",
+  "database_status": "UP",
   "started_at": "2026-07-27T19:00:00Z",
   "metrics": {
     "requests_total": 1420,
@@ -61,6 +62,7 @@ it improves restart detection.
 |---|---|---|---|---|
 | `schema` | string | — | No | Must be `statlite-metrics/v1`. |
 | `status` | string | — | No | Non-empty application health/status text. |
+| `database_status` | string | — | Yes | Non-empty status text for an application database dependency when the producer can safely determine it. StatLite self-monitoring emits `UP` or `DOWN` from a cached SQLite `PingContext` check, refreshed on startup and every 60 seconds; a closed local store reports `DOWN` immediately. |
 | `started_at` | string | RFC 3339 timestamp | Yes | Process start time; recommended for restart detection. |
 | `metrics` | object | — | Yes | Container for the fixed application metric fields below. |
 | `metrics.requests_total` | number | requests | Yes | Monotonic request counter. |
@@ -116,7 +118,7 @@ metrics. Disk I/O counters are intentionally outside v1 for now.
 * Collect HTTP counters in middleware so all relevant requests and responses
   are counted consistently.
 * Expose current runtime and process values.
-* Do not query a database when serving the metrics endpoint.
+* Do not perform blocking application database checks or other blocking I/O just to serve the metrics endpoint. Run bounded checks on a schedule or through an existing readiness mechanism, cache the result, and serve that cached status. StatLite refreshes its SQLite `database_status` on startup and every 60 seconds rather than during a metrics scrape.
 * Take a consistent snapshot of related values when practical.
 
 Host fields are optional. Spring Boot, Python, Go, and other application

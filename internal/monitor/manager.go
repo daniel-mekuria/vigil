@@ -109,6 +109,12 @@ func (m *Manager) Monitor(name string) *Monitor {
 	return m.ResolveTarget(name).Monitor
 }
 
+// PrimaryMonitor returns the first configured monitor. Server-owned storage
+// checks use this stable monitor rather than request-dependent target routing.
+func (m *Manager) PrimaryMonitor() *Monitor {
+	return m.targets[m.order[0]].Monitor
+}
+
 func (m *Manager) Metadata(name string) TargetMetadata {
 	return m.ResolveTarget(name).Metadata
 }

@@ -27,6 +27,7 @@ func TestStatliteMetricsClientFetchesCompleteV1Response(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"schema": "statlite-metrics/v1",
 			"status": "UP",
+			"database_status": "UP",
 			"started_at": "2026-07-27T19:00:00Z",
 			"metrics": {
 				"requests_total": 1420,
@@ -65,6 +66,9 @@ func TestStatliteMetricsClientFetchesCompleteV1Response(t *testing.T) {
 	}
 	if response.Status != "UP" {
 		t.Fatalf("Status = %q, want UP", response.Status)
+	}
+	if !response.DatabaseStatus.present() {
+		t.Fatal("DatabaseStatus is absent, want present")
 	}
 	if !response.StartedAt.present() {
 		t.Fatal("StartedAt is absent, want present")

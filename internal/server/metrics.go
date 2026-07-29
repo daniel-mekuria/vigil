@@ -11,10 +11,11 @@ import (
 )
 
 type statliteMetricsResponse struct {
-	Schema    string                `json:"schema"`
-	Status    string                `json:"status"`
-	StartedAt time.Time             `json:"started_at"`
-	Metrics   statliteMetricsValues `json:"metrics"`
+	Schema         string                `json:"schema"`
+	Status         string                `json:"status"`
+	DatabaseStatus *string               `json:"database_status,omitempty"`
+	StartedAt      time.Time             `json:"started_at"`
+	Metrics        statliteMetricsValues `json:"metrics"`
 }
 
 type statliteMetricsValues struct {
@@ -44,9 +45,10 @@ func (s *Server) handleStatliteMetrics(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	response := statliteMetricsResponse{
-		Schema:    collector.StatliteMetricsV1Schema,
-		Status:    "UP",
-		StartedAt: s.startedAt,
+		Schema:         collector.StatliteMetricsV1Schema,
+		Status:         "UP",
+		DatabaseStatus: s.databaseStatus(),
+		StartedAt:      s.startedAt,
 		Metrics: statliteMetricsValues{
 			RequestsTotal:               s.requestsTotal.Load(),
 			Responses404Total:           s.notFoundTotal.Load(),
@@ -68,4 +70,16 @@ func (s *Server) handleStatliteMetrics(w http.ResponseWriter, _ *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("encode StatLite metrics response: %v", err)
 	}
+}
+
+func (s *Server) databaseStatus() *string {
+	if s.manager == nil {
+		return nil
+	}
+
+	status := "UP"
+	if s.storageHealthStatus() != "ok" {
+		status = "DOWN"
+	}
+	return &status
 }

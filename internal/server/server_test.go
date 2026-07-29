@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -278,6 +279,101 @@ func TestStatliteMetricsOmitsUnavailableDisk(t *testing.T) {
 	}
 }
 
+func TestStatliteMetricsReportsSQLiteDatabaseStatus(t *testing.T) {
+	store, err := storage.Open(t.Context(), t.TempDir()+"/statlite.sqlite")
+	if err != nil {
+		t.Fatalf("storage.Open() error = %v", err)
+	}
+	defer store.Close()
+
+	mon := newServerTestMonitor(t, "statlite-self", store, &noopCollector{})
+	statlite := New("127.0.0.1:0", mon)
+	statlite.hostSampler = &recordingHostSampler{}
+	statlite.refreshStorageHealth(t.Context())
+
+	recorder := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	var response statliteMetricsResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatalf("decode metrics: %v", err)
+	}
+	if response.DatabaseStatus == nil || *response.DatabaseStatus != "UP" {
+		t.Fatalf("DatabaseStatus = %v, want UP", response.DatabaseStatus)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("store.Close() error = %v", err)
+	}
+	recorder = httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatalf("decode metrics after close: %v", err)
+	}
+	if response.DatabaseStatus == nil || *response.DatabaseStatus != "DOWN" {
+		t.Fatalf("DatabaseStatus after close = %v, want DOWN", response.DatabaseStatus)
+	}
+}
+
+func TestStorageHealthCheckCachesAndRefreshesWithoutBlockingEndpoints(t *testing.T) {
+	store, err := storage.Open(t.Context(), t.TempDir()+"/statlite.sqlite")
+	if err != nil {
+		t.Fatalf("storage.Open() error = %v", err)
+	}
+	defer store.Close()
+
+	mon := newServerTestMonitor(t, "statlite-self", store, &noopCollector{})
+	statlite := New("127.0.0.1:0", mon)
+	statlite.hostSampler = &recordingHostSampler{}
+	statlite.storageInterval = time.Millisecond
+	var healthy atomic.Bool
+	healthy.Store(true)
+	statlite.storageHealthy = func(context.Context) bool { return healthy.Load() }
+	statlite.storageAvailable = func() bool { return true }
+	statlite.startStorageHealthChecks()
+	defer statlite.stopStorageHealthChecks()
+
+	assertCachedStorageStatus(t, statlite, "ok")
+	assertStorageEndpoints(t, statlite, http.StatusOK, "UP")
+
+	healthy.Store(false)
+	assertCachedStorageStatus(t, statlite, "error")
+	assertStorageEndpoints(t, statlite, http.StatusServiceUnavailable, "DOWN")
+
+	healthy.Store(true)
+	assertCachedStorageStatus(t, statlite, "ok")
+	assertStorageEndpoints(t, statlite, http.StatusOK, "UP")
+}
+
+func assertCachedStorageStatus(t *testing.T, statlite *Server, want string) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if statlite.storageHealthStatus() == want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("storageHealthStatus() = %q, want %q", statlite.storageHealthStatus(), want)
+}
+
+func assertStorageEndpoints(t *testing.T, statlite *Server, wantHTTPStatus int, wantDatabaseStatus string) {
+	t.Helper()
+	health := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if health.Code != wantHTTPStatus {
+		t.Fatalf("healthz status = %d, want %d", health.Code, wantHTTPStatus)
+	}
+
+	metrics := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(metrics, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	var response statliteMetricsResponse
+	if err := json.NewDecoder(metrics.Body).Decode(&response); err != nil {
+		t.Fatalf("decode metrics: %v", err)
+	}
+	if response.DatabaseStatus == nil || *response.DatabaseStatus != wantDatabaseStatus {
+		t.Fatalf("DatabaseStatus = %v, want %s", response.DatabaseStatus, wantDatabaseStatus)
+	}
+}
+
 func TestStatliteMetricsProfileIsConsumableByCanonicalCollector(t *testing.T) {
 	statlite := New("127.0.0.1:0", nil)
 	statlite.hostSampler = &recordingHostSampler{}
@@ -322,6 +418,7 @@ func TestHealthzStaysOKWhenTargetPollingFails(t *testing.T) {
 		t.Fatalf("monitor.New() error = %v", err)
 	}
 	statlite := New("127.0.0.1:0", mon)
+	statlite.refreshStorageHealth(t.Context())
 	server := httptest.NewServer(statlite.httpServer.Handler)
 	defer server.Close()
 
@@ -445,6 +542,7 @@ func TestDebugEndpointsAllowConcurrentPollAndLatestAccess(t *testing.T) {
 		t.Fatalf("monitor.New() error = %v", err)
 	}
 	statlite := New("127.0.0.1:0", mon)
+	statlite.refreshStorageHealth(t.Context())
 	server := httptest.NewServer(statlite.httpServer.Handler)
 	defer server.Close()
 

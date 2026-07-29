@@ -159,6 +159,10 @@ func (m *Monitor) StorageHealthy(ctx context.Context) bool {
 	return m.store.Ping(ctx) == nil
 }
 
+func (m *Monitor) StorageAvailable() bool {
+	return m.store.Available()
+}
+
 func (m *Monitor) Series(ctx context.Context, start, end time.Time) (*storage.Series, error) {
 	return m.store.Series(ctx, m.targetName, start, end)
 }
