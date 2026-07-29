@@ -12,7 +12,7 @@ import (
 )
 
 func TestEntrypointRejectsRetiredTargetTypesClearly(t *testing.T) {
-	for _, retiredType := range []string{"statlite-health", "statlite"} {
+	for _, retiredType := range []string{"statlite-health", "statlite", "host"} {
 		t.Run(retiredType, func(t *testing.T) {
 			configPath := filepath.Join(t.TempDir(), "statlite.yaml")
 			config := `server:
@@ -46,7 +46,6 @@ targets:
 				`"` + retiredType + `"`,
 				`spring`,
 				`statlite-metrics`,
-				`host`,
 			} {
 				if !strings.Contains(message, want) {
 					t.Fatalf("startup output = %q, missing %q", message, want)

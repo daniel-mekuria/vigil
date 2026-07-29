@@ -15,7 +15,8 @@ function help() {
     echo
     echo "Commands:"
     echo "  lint               - Run static analysis (go vet) and format check"
-    echo "  test               - Run all project tests"
+    echo "  test               - Run Go tests"
+    echo "  test-all           - Run Go and dashboard JavaScript tests"
     echo "  build              - Build the development binary at ./${BINARY_NAME}"
     echo "  release            - Run dashboard tests and build release binaries at ./dist/"
     echo "  all                - Run lint, test, and build (default)"
@@ -40,7 +41,7 @@ function lint() {
 }
 
 function test() {
-    echo -e "${GREEN}==> Running tests...${NC}"
+    echo -e "${GREEN}==> Running Go tests...${NC}"
     (cd "${SCRIPT_DIR}" && go test -v ./...)
 }
 
@@ -57,6 +58,11 @@ function dashboard_test() {
     fi
     echo -e "${GREEN}==> Running dashboard JavaScript tests...${NC}"
     (cd "${SCRIPT_DIR}" && node --test internal/dashboard/static/dashboard.test.js)
+}
+
+function test_all() {
+    test
+    dashboard_test
 }
 
 function release() {
@@ -91,6 +97,7 @@ COMMAND=${1:-all}
 case $COMMAND in
     lint) lint ;;
     test) test ;;
+    test-all) test_all ;;
     build) build ;;
     release) release ;;
     all) lint; test; build ;;
