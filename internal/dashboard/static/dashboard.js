@@ -430,8 +430,6 @@ function targetTypeHelp(value) {
     return "Monitors a Spring Boot application through its Actuator endpoint.";
   case "statlite-metrics":
     return "Monitors a StatLite Metrics v1 profile.";
-  case "host":
-    return "Monitors local host CPU, memory, and disk resources.";
   default:
     return "Collector details are unavailable for this target type.";
   }

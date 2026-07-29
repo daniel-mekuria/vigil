@@ -38,12 +38,6 @@ func TestNewCollectorBuildsConfiguredTargetTypes(t *testing.T) {
 			wantType:   "statlite metrics",
 			wantTarget: "*collector.StatliteMetricsCollector",
 		},
-		{
-			name:       "local host",
-			target:     config.TargetConfig{Name: "host", Type: config.TargetTypeHost},
-			wantType:   "local host",
-			wantTarget: "*collector.HostCollector",
-		},
 	}
 
 	for _, tt := range tests {

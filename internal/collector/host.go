@@ -4,7 +4,6 @@ package collector
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 type HostSampler struct {
@@ -28,10 +26,6 @@ type HostMetrics struct {
 	MemoryTotalBytes *float64
 	DiskUsedBytes    *float64
 	DiskTotalBytes   *float64
-}
-
-type hostMetricsSampler interface {
-	Sample(filesystemPath string) (HostMetrics, []error)
 }
 
 func NewHostSampler() *HostSampler { return &HostSampler{} }
@@ -144,38 +138,4 @@ func parseHostMemory(reader io.Reader) (float64, float64, error) {
 		return 0, 0, fmt.Errorf("invalid memory totals")
 	}
 	return float64(total - available), float64(total), nil
-}
-
-type HostCollector struct {
-	targetName     string
-	filesystemPath string
-	sampler        hostMetricsSampler
-}
-
-func NewHostCollector(targetName, filesystemPath string, sampler hostMetricsSampler) *HostCollector {
-	if sampler == nil {
-		sampler = NewHostSampler()
-	}
-	return &HostCollector{targetName: targetName, filesystemPath: filesystemPath, sampler: sampler}
-}
-
-func (c *HostCollector) Collect(_ context.Context) (*CollectionResult, error) {
-	now := time.Now().UTC()
-	result := &CollectionResult{TargetName: c.targetName, PollStartedAt: now, PollFinishedAt: now, HealthStatus: "UP"}
-	metrics, warnings := c.sampler.Sample(c.filesystemPath)
-	for _, warning := range warnings {
-		result.addEvent(EventSeverityWarning, "host_metric_unavailable", "", warning.Error())
-	}
-	addHostMetricSample(result, "host_cpu_usage", metrics.CPUUsage, "ratio")
-	addHostMetricSample(result, "host_memory_used_bytes", metrics.MemoryUsedBytes, "bytes")
-	addHostMetricSample(result, "host_memory_total_bytes", metrics.MemoryTotalBytes, "bytes")
-	addHostMetricSample(result, "host_disk_used_bytes", metrics.DiskUsedBytes, "bytes")
-	addHostMetricSample(result, "host_disk_total_bytes", metrics.DiskTotalBytes, "bytes")
-	return result, nil
-}
-
-func addHostMetricSample(result *CollectionResult, key string, value *float64, unit string) {
-	if value != nil {
-		result.addSample(key, MetricKindGauge, *value, unit)
-	}
 }

@@ -117,6 +117,12 @@ metrics. Disk I/O counters are intentionally outside v1 for now.
 * Do not query a database when serving the metrics endpoint.
 * Take a consistent snapshot of related values when practical.
 
+Host fields are optional. Spring Boot, Python, Go, and other application
+integrations do not need to implement host sampling. A producer may include
+them when it deliberately exposes the execution environment visible to its
+process; StatLite displays those values with that application target rather
+than creating a separate target.
+
 See the [FastAPI example](../examples/python-fastapi-demo/) for a complete
 Python implementation. It is illustrative; this document is the canonical
 contract.

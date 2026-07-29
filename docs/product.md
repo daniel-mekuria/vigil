@@ -44,6 +44,24 @@ StatLite has three supported target roles:
 Spring and StatLite Metrics are application integrations. None of these
 boundaries is an arbitrary metrics API.
 
+## Deployment topology
+
+For a collocated deployment, configure application targets (`spring` or
+`statlite-metrics`) for application and process data, and `statlite-self`
+through `/statlite/metrics` to monitor StatLite itself. The self response also
+provides the local host CPU, memory, and SQLite-filesystem disk capacity, so
+one target presents StatLite's application, process, and host resources.
+
+Host fields in `statlite-metrics/v1` remain optional for applications that
+deliberately expose the execution environment visible to their process. Those
+values stay attached to the application target and can appear beside its
+application and process charts; StatLite does not create a separate host
+target.
+
+A central StatLite instance cannot infer host resources for a remote
+application. For remote host visibility, the application must emit optional
+host fields, or another StatLite instance must run on that host.
+
 ## Normalized collection model
 
 Collectors keep source-specific response formats inside their adapters. The

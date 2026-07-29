@@ -132,6 +132,16 @@ StatLite performs one bounded JSON GET per poll; Basic Auth is not part of v1.
 
 Root `statlite.yaml` uses this pattern so Quick Start works with no extra config. The first poll may fail until the HTTP server is listening; later polls should succeed.
 
+### Host resources
+
+The `statlite-self` target reports the local host CPU, memory, and filesystem
+containing StatLite's SQLite database through `/statlite/metrics`. It is the
+single target for StatLite's application, process, and host-resource charts.
+
+For a remote application, a central StatLite instance cannot obtain that
+machine's host resources unless the application emits the optional host fields
+in `statlite-metrics/v1` or another StatLite instance runs on the remote host.
+
 ## Dashboard URL state
 
 Selected target and time range are stored in the query string, so you can bookmark a view:

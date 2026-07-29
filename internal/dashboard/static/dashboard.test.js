@@ -43,6 +43,17 @@ test("capability detection resets for a target without metrics", () => {
   });
 });
 
+test("dashboard displays embedded host fields with application data", () => {
+  const embeddedHost = dashboard.detectCapabilities([{
+    requests: 3,
+    host_memory_used_bytes: 30,
+    host_memory_total_bytes: 100
+  }]);
+  assert.equal(embeddedHost.application, true);
+  assert.equal(embeddedHost.host, true);
+  assert.equal(embeddedHost.hostMemory, true);
+});
+
 test("formatters reject non-finite inputs and show the current disk observation", () => {
   assert.equal(dashboard.formatValue(Infinity, "percent"), "Unknown");
   assert.equal(dashboard.formatBytes(NaN), "Unknown");

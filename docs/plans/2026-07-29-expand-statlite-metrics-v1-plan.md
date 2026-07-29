@@ -9,16 +9,11 @@ Archived:
 
 Extend the fixed `statlite-metrics/v1` profile from application/process-only
 metrics to application, process, and five supported optional host metrics. Make
-StatLite emit and collect that same profile for its own dashboard, recommend a
-local `type: host` collector as the collocated machine-metrics source, retire
-the separate `statlite-health` dashboard protocol, and organize charts by the
-capabilities actually present in a target response.
-
-The repository currently has no `type: host` collector despite the proposal
-referring to it as experimental. This plan adds the narrowly scoped local host
-collector needed for the stated acceptance criteria; it will use the same
-normalized host metric keys as embedded host fields and will not create a
-synthetic target for embedded fields.
+StatLite emit and collect that same profile for its own dashboard, retire the
+separate `statlite-health` dashboard protocol, and organize charts by the
+capabilities actually present in a target response. Host metrics remain
+attached to the target that produces them; no separate local or synthetic host
+target exists.
 
 ## Source Constraints
 
@@ -82,10 +77,8 @@ The following issue requirements must remain true throughout implementation:
 * `/healthz` may remain only as lightweight readiness: process availability,
   SQLite usability, version, and HTTP `200`/`503`. It is not a dashboard
   protocol and must not duplicate application, process, or host chart data.
-* A local `type: host` collector is allowed for zero-integration local
-  monitoring. It emits only the shared normalized host keys and displays only
-  Host resources. Embedded host fields remain attached to their application
-  target; never synthesize another host target.
+* Host fields remain attached to their producing StatLite Metrics target;
+  never synthesize another host target.
 * Dashboard sections are capability based: **Application**, **Process**, and
   **Host resources**. A StatLite Metrics target may display all three.
 * Update `docs/statlite-metrics-v1.md`, `docs/product.md`,
@@ -96,8 +89,8 @@ The following issue requirements must remain true throughout implementation:
 
 ## Progress
 
-Current Phase: Phase 3 — Capability-based dashboard
-Current Chunk: Chunk 3.3 — Establish lightweight JavaScript unit testing
+Current Phase: Phase 4 — Config, examples, documentation, and regression verification
+Current Chunk: Chunk 4.1 — Lock the host-metrics deployment boundary
 Status: [x] Complete
 
 ### Phase Checklist
@@ -119,15 +112,15 @@ Status: [x] Complete
 ### Phase 1 — Contract and normalized data
 
 Goal: Specify and normalize the renamed process metric and five optional host
-metrics, including safe validation, query shaping, derived memory/disk
-percentages, and the local-host source.
+metrics, including safe validation, query shaping, and derived memory/disk
+percentages.
 
 Boundaries: Do not change the self endpoint or dashboard layout in this phase.
 Do not introduce duplicate source-specific host keys, rollups, labels, or a
 general system-metrics framework.
 
-Exit Criteria: The profile parser and local host collector produce the shared
-normalized host keys; series/downsampling can return host values and derived
+Exit Criteria: The profile parser accepts the shared normalized host keys;
+series/downsampling can return host values and derived
 memory/disk percentages with correct missing/invalid behavior.
 
 ### Phase 2 — StatLite endpoint and collector migration
@@ -212,14 +205,6 @@ Checklist:
   above memory total, and disk used values above disk total when each pair is
   valid. Use unit `cores` for `process_cpu_usage` and `ratio` for
   `host_cpu_usage`.
-- [x] (impl) Add the fixed local `host` target type in `internal/config` and
-  `internal/app`, with a collector under `internal/collector` that emits only
-  the same five normalized host keys. Give it no URL/auth requirement and no
-  application/process samples. It must use the same dependency-light sampler,
-  selecting the filesystem containing StatLite's configured SQLite database
-  when easily available and otherwise falling back to the current working
-  directory. Display it as a local endpoint such as `local host`, never a
-  filesystem path.
 - [x] (impl) Extend `internal/storage/types.go`, `series.go`, and
   `downsample.go` so each raw host sample first derives a memory/disk percentage
   only when its own used/total pair is valid and total is positive. Return the
@@ -230,8 +215,8 @@ Checklist:
 - [x] (test) Cover complete/sparse/invalid profile host and disk fields,
   renamed process CPU above `1.0`, host CPU range rejection, negative and
   non-finite disk values, used above total for both memory and disk, zero
-  total, a missing byte of a pair, shared keys from the local host collector,
-  and host/disk values through aggregation/downsampling. Assert percentages
+  total, a missing byte of a pair, and host/disk values through
+  aggregation/downsampling. Assert percentages
   are calculated per sample and downsampling averages those gauges rather than
   combining unrelated byte observations.
 - [x] (verify) Run focused collector/storage/config tests, then `go test ./...`.
@@ -239,8 +224,6 @@ Checklist:
 Done Criteria:
 
 - The collector accepts a minimal profile and any valid subset of metrics.
-- Local and remote host and disk values have identical normalized key, kind,
-  and unit.
 - No stored sample is a derived host-memory or disk percentage; percentages
   are calculated only for query/dashboard output, and downsampling averages
   only percentages derived from individual valid samples.
@@ -345,8 +328,8 @@ Checklist:
   a current-value display such as `Disk — 18.4 GB / 40 GB · 46%`. Show Disk
   only for a valid used/total pair; never treat missing values as zero. A
   `statlite-metrics` target may render all sections when it provides the
-  optional host fields; `host` renders only Host resources. Do not imply that
-  every statlite-metrics producer must provide host fields.
+  optional host fields. Do not imply that every statlite-metrics producer must
+  provide host fields.
 - [x] (test) Extend server/API tests for serialized host/disk series and add
   lightweight static/dashboard assertions for section identifiers, chart data
   bindings, raw-byte display, conditional Disk visibility, derived percentage,
@@ -452,7 +435,7 @@ Done Criteria:
 
 ### Chunk 4.1 — Lock the host-metrics deployment boundary
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -462,30 +445,29 @@ Preconditions:
 
 Checklist:
 
-- [ ] (design) Record the recommended collocated deployment model:
-  application targets provide application and process metrics; a local
-  `type: host` target provides machine CPU, memory, and disk metrics; and the
-  `statlite-self` target monitors StatLite through `/statlite/metrics`.
-- [ ] (design) Clarify that Spring Boot, Python, Go, and other application
+- [x] (design) Record the recommended collocated deployment model:
+  application targets provide application and process metrics, while
+  `statlite-self` monitors StatLite and reports its local host CPU, memory,
+  and SQLite-filesystem disk capacity through `/statlite/metrics`.
+- [x] (design) Clarify that Spring Boot, Python, Go, and other application
   integrations are not required to implement host sampling. Host fields
   remain valid optional profile fields for producers that deliberately expose
   the execution environment visible to them.
-- [ ] (design) Document the remote-host boundary: a central StatLite instance
+- [x] (design) Document the remote-host boundary: a central StatLite instance
   cannot obtain host metrics for a remote application unless that application
   emits optional host fields or another StatLite instance runs on that host.
-- [ ] (test) Keep collector and dashboard coverage for embedded host fields so
+- [x] (test) Keep collector and dashboard coverage for embedded host fields so
   producers that choose to emit them remain supported.
-- [ ] (verify) Confirm the dashboard handles both supported models:
-  application target plus separate local host target; and application target
-  with optional embedded host fields.
+- [x] (verify) Confirm the dashboard handles an application target with
+  optional embedded host fields and keeps those fields on that target.
 
 Done Criteria:
 
 - No application framework integration is required to duplicate StatLite's
-  local host sampler.
+  self-monitoring host sampler.
 - Collocated deployment guidance consistently recommends spring or
-  statlite-metrics for the application, host for the machine, and statlite-self
-  for StatLite.
+  statlite-metrics for applications and statlite-self for StatLite and its
+  local host resources.
 - Optional embedded host fields remain backward-compatible and
   capability-based.
 - Remote-host limitations are explicit.
@@ -506,8 +488,8 @@ Checklist:
   Retain scrape exclusion and omit values it cannot safely determine.
 - [ ] (impl) Update `docs/statlite-metrics-v1.md`, `docs/product.md`,
   `docs/configuration.md`, and necessary README text to name the profile as
-  canonical for StatLite and external integrations, describe `type: host` as
-  local-only, and limit `/healthz` to readiness/version/SQLite semantics.
+  canonical for StatLite and external integrations, describe host metrics as
+  target-attached, and limit `/healthz` to readiness/version/SQLite semantics.
 - [ ] (impl) Update all relevant example configs and target-type summaries;
   remove claims that `/healthz` is a self-monitoring integration.
 - [ ] (test) Add/adjust FastAPI example checks if the repository's test setup
@@ -546,11 +528,6 @@ Done Criteria:
 - [ ] The specialized `statlite-health` path is removed or has an explicit,
   evidence-based deprecation record.
 - [ ] `/healthz` is readiness/version/SQLite only.
-- [ ] Local `type: host` and embedded host metrics share normalized keys.
-- [ ] Local `type: host` and embedded disk metrics use identical normalized
-  keys.
-- [ ] Collocated deployment guidance recommends an application target plus a
-  local `type: host` target for machine resources.
 - [ ] Remote-host limitations are documented: central StatLite cannot infer a
   remote application's host metrics without emitted optional fields or a
   StatLite instance running on that host.
