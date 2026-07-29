@@ -97,7 +97,7 @@ The following issue requirements must remain true throughout implementation:
 
 Current Phase: Phase 2 — StatLite endpoint and collector migration
 Current Chunk: Chunk 2.1 — Emit StatLite's canonical profile
-Status: [ ] Not started
+Status: [x] Complete
 
 ### Phase Checklist
 
@@ -240,7 +240,7 @@ Done Criteria:
 
 ### Chunk 2.1 — Emit StatLite's canonical profile
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -249,7 +249,7 @@ Preconditions:
 
 Checklist:
 
-- [ ] (impl) Add `/statlite/metrics` route and a profile-shaped server
+- [x] (impl) Add `/statlite/metrics` route and a profile-shaped server
   response in `internal/server`. Populate `schema`, non-empty status,
   `started_at`, and available existing request counters/latency, Go
   `runtime.MemStats.Alloc`, process CPU in CPU cores (remove the current
@@ -258,20 +258,20 @@ Checklist:
   SQLite database. Omit disk fields and record an internal warning/log when
   that filesystem cannot be determined or sampled; do not fail this endpoint
   or readiness.
-- [ ] (impl) Refactor request accounting so `/statlite/metrics` is excluded
+- [x] (impl) Refactor request accounting so `/statlite/metrics` is excluded
   from all application request/error/latency counters while normal dashboard
   and readiness requests retain the defined application accounting behavior.
   Add bounded request-duration total/max instrumentation if it is not already
   present in the shared server middleware.
-- [ ] (impl) Reduce `internal/server/health.go` to version plus readiness and
+- [x] (impl) Reduce `internal/server/health.go` to version plus readiness and
   SQLite status only. Retain 200/503 semantics, but remove the nested
   `statlite` metrics/polling payload and its dashboard-specific data.
-- [ ] (test) Assert the endpoint's schema, optional fields, process CPU units,
+- [x] (test) Assert the endpoint's schema, optional fields, process CPU units,
   host values when available, disk fields when sampling succeeds, database
   location selection, disk omission when unavailable, and exclusion of its
   own scrape. Assert `/healthz` still exposes version/readiness and no metrics
   protocol or duplicate disk payload.
-- [ ] (verify) Run `go test ./internal/server ./internal/collector`.
+- [x] (verify) Run `go test ./internal/server ./internal/collector`.
 
 Done Criteria:
 

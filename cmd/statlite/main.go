@@ -71,7 +71,7 @@ func main() {
 	storage.StartRetentionCleanup(ctx, store, cfg.Storage.RetentionDays, retentionCutoff.Set)
 	manager.Start(ctx)
 
-	srv := server.NewWithManagerRetentionCutoff(cfg.Server.Listen, manager, cfg.Storage.RetentionDays, retentionCutoff.Current)
+	srv := server.NewWithManagerRetentionCutoffAndFilesystem(cfg.Server.Listen, manager, cfg.Storage.RetentionDays, retentionCutoff.Current, cfg.Storage.SQLitePath)
 	log.Print(startupMessage(cfg.Server.Listen, len(manager.Names())))
 
 	go func() {

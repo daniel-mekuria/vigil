@@ -9,8 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pvrlabs/statlite/internal/collector"
 	"github.com/pvrlabs/statlite/internal/monitor"
 )
+
+type hostSampler interface {
+	Sample(filesystemPath string) (collector.HostMetrics, []error)
+}
 
 type Server struct {
 	httpServer      *http.Server
@@ -20,7 +25,12 @@ type Server struct {
 	startedAt       time.Time
 	requestsTotal   atomic.Uint64
 	notFoundTotal   atomic.Uint64
+	clientErrors    atomic.Uint64
 	serverErrors    atomic.Uint64
+	durationTotalNS atomic.Uint64
+	durationMaxNS   atomic.Uint64
+	filesystemPath  string
+	hostSampler     hostSampler
 	cpuMu           sync.Mutex
 	lastCPUAt       time.Time
 	lastCPUSeconds  float64
@@ -48,6 +58,10 @@ func NewWithManagerRetention(listen string, manager *monitor.Manager, retentionD
 }
 
 func NewWithManagerRetentionCutoff(listen string, manager *monitor.Manager, retentionDays int, retentionCutoff func() time.Time) *Server {
+	return NewWithManagerRetentionCutoffAndFilesystem(listen, manager, retentionDays, retentionCutoff, "")
+}
+
+func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.Manager, retentionDays int, retentionCutoff func() time.Time, filesystemPath string) *Server {
 	mux := http.NewServeMux()
 	if retentionDays > 0 && retentionCutoff == nil {
 		retentionCutoff = func() time.Time {
@@ -59,11 +73,14 @@ func NewWithManagerRetentionCutoff(listen string, manager *monitor.Manager, rete
 		retentionDays:   retentionDays,
 		retentionCutoff: retentionCutoff,
 		startedAt:       time.Now().UTC(),
+		filesystemPath:  filesystemPath,
+		hostSampler:     collector.NewHostSampler(),
 	}
 
 	mux.HandleFunc("/", s.handleRoot)
 	mux.HandleFunc("/static/statlite-icon.png", s.handleStatliteIcon)
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/statlite/metrics", s.handleStatliteMetrics)
 	mux.HandleFunc("/api/summary", s.handleSummary)
 	mux.HandleFunc("/api/series", s.handleSeries)
 	mux.HandleFunc("/api/latest", s.handleLatest)
@@ -101,16 +118,35 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) countRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/statlite/metrics" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		started := time.Now()
 		s.requestsTotal.Add(1)
 		next.ServeHTTP(recorder, r)
+		duration := uint64(time.Since(started))
+		s.durationTotalNS.Add(duration)
+		updateAtomicMax(&s.durationMaxNS, duration)
 		if recorder.status == http.StatusNotFound {
 			s.notFoundTotal.Add(1)
+		}
+		if recorder.status >= 400 && recorder.status < 500 {
+			s.clientErrors.Add(1)
 		}
 		if recorder.status >= 500 {
 			s.serverErrors.Add(1)
 		}
 	})
+}
+
+func updateAtomicMax(value *atomic.Uint64, candidate uint64) {
+	for current := value.Load(); candidate > current; current = value.Load() {
+		if value.CompareAndSwap(current, candidate) {
+			return
+		}
+	}
 }
 
 type statusRecorder struct {

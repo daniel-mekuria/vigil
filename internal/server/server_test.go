@@ -83,7 +83,7 @@ func TestStatliteIconServedAsPNG(t *testing.T) {
 	}
 }
 
-func TestHealthzIncludesSelfMetricsAndRequestCounters(t *testing.T) {
+func TestHealthzIncludesReadinessOnly(t *testing.T) {
 	statlite := New("127.0.0.1:0", nil)
 	server := httptest.NewServer(statlite.httpServer.Handler)
 	defer server.Close()
@@ -115,43 +115,151 @@ func TestHealthzIncludesSelfMetricsAndRequestCounters(t *testing.T) {
 		t.Fatalf("healthz status = %d, want 200", resp.StatusCode)
 	}
 
-	var health HealthResponse
+	var health map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatalf("decode healthz: %v", err)
 	}
-	if health.Status != "ok" || health.Timestamp == "" {
+	if health["status"] != "ok" || health["timestamp"] == "" {
 		t.Fatalf("health response = %#v, want status/timestamp", health)
 	}
-	if health.Version != version.Version {
-		t.Fatalf("health version = %q, want %q", health.Version, version.Version)
+	if health["version"] != version.Version {
+		t.Fatalf("health version = %q, want %q", health["version"], version.Version)
 	}
-	if health.Statlite.UptimeSeconds <= 0 {
-		t.Fatalf("uptime = %v, want positive", health.Statlite.UptimeSeconds)
+	if _, exists := health["statlite"]; exists {
+		t.Fatalf("health response includes legacy metrics payload: %#v", health)
 	}
-	if health.Statlite.ProcessStartTime.IsZero() {
-		t.Fatal("process_start_time is zero, want server start time")
+	storageHealth := health["storage"].(map[string]any)
+	if storageHealth["status"] != "unavailable" {
+		t.Fatalf("storage status = %q, want unavailable", storageHealth["status"])
 	}
-	if health.Statlite.HTTP.RequestsTotal != 3 {
-		t.Fatalf("requests_total = %d, want 3", health.Statlite.HTTP.RequestsTotal)
+}
+
+type recordingHostSampler struct {
+	metrics  collector.HostMetrics
+	warnings []error
+	path     string
+}
+
+func (s *recordingHostSampler) Sample(path string) (collector.HostMetrics, []error) {
+	s.path = path
+	return s.metrics, s.warnings
+}
+
+func TestStatliteMetricsEmitsCanonicalProfileAndExcludesScrape(t *testing.T) {
+	cpu, memoryUsed, memoryTotal := 0.25, 100.0, 200.0
+	diskUsed, diskTotal := 300.0, 400.0
+	sampler := &recordingHostSampler{metrics: collector.HostMetrics{
+		CPUUsage:         &cpu,
+		MemoryUsedBytes:  &memoryUsed,
+		MemoryTotalBytes: &memoryTotal,
+		DiskUsedBytes:    &diskUsed,
+		DiskTotalBytes:   &diskTotal,
+	}}
+	statlite := NewWithManagerRetentionCutoffAndFilesystem("127.0.0.1:0", nil, 0, nil, "/data/statlite.sqlite")
+	statlite.hostSampler = sampler
+
+	normal := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(normal, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if normal.Code != http.StatusOK {
+		t.Fatalf("healthz status = %d, want 200", normal.Code)
 	}
-	if health.Statlite.HTTP.NotFoundTotal != 1 {
-		t.Fatalf("not_found_total = %d, want 1", health.Statlite.HTTP.NotFoundTotal)
+
+	first := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	if first.Code != http.StatusOK {
+		t.Fatalf("metrics status = %d, want 200", first.Code)
 	}
-	if health.Statlite.HTTP.ServerErrorTotal != 1 {
-		t.Fatalf("server_error_total = %d, want 1", health.Statlite.HTTP.ServerErrorTotal)
+	var response statliteMetricsResponse
+	if err := json.NewDecoder(first.Body).Decode(&response); err != nil {
+		t.Fatalf("decode metrics: %v", err)
 	}
-	if health.Statlite.Runtime.MemorySysBytes == 0 || health.Statlite.Runtime.Goroutines == 0 {
-		t.Fatalf("runtime = %#v, want runtime metrics", health.Statlite.Runtime)
+	if response.Schema != collector.StatliteMetricsV1Schema || response.Status == "" || response.StartedAt.IsZero() {
+		t.Fatalf("profile identity = %#v, want schema/status/started_at", response)
 	}
-	if health.Statlite.Runtime.ProcessCPUUsage < 0 {
-		t.Fatalf("process_cpu_usage = %v, want non-negative", health.Statlite.Runtime.ProcessCPUUsage)
+	if response.Metrics.RequestsTotal != 1 {
+		t.Fatalf("requests_total = %d, want 1", response.Metrics.RequestsTotal)
 	}
-	if health.Statlite.Storage.Status != "unavailable" {
-		t.Fatalf("storage status = %q, want unavailable without monitor", health.Statlite.Storage.Status)
+	if response.Metrics.RequestDurationSecondsTotal <= 0 || response.Metrics.RequestDurationSecondsMax <= 0 {
+		t.Fatalf("request durations = total %v max %v, want positive", response.Metrics.RequestDurationSecondsTotal, response.Metrics.RequestDurationSecondsMax)
 	}
-	if health.Statlite.Storage.LastStoredPollID != 0 {
-		t.Fatalf("last_stored_poll_id = %d, want 0 without monitor", health.Statlite.Storage.LastStoredPollID)
+	if response.Metrics.RuntimeHeapUsedBytes == 0 || response.Metrics.UptimeSeconds <= 0 || response.Metrics.ProcessCPUUsage < 0 {
+		t.Fatalf("runtime metrics = %#v, want available non-negative values", response.Metrics)
 	}
+	if response.Metrics.HostCPUUsage == nil || *response.Metrics.HostCPUUsage != cpu ||
+		response.Metrics.HostMemoryUsedBytes == nil || *response.Metrics.HostMemoryUsedBytes != memoryUsed ||
+		response.Metrics.HostDiskTotalBytes == nil || *response.Metrics.HostDiskTotalBytes != diskTotal {
+		t.Fatalf("host metrics = %#v, want sampled values", response.Metrics)
+	}
+	if sampler.path != "/data/statlite.sqlite" {
+		t.Fatalf("sample path = %q, want SQLite database path", sampler.path)
+	}
+
+	second := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	var secondResponse statliteMetricsResponse
+	if err := json.NewDecoder(second.Body).Decode(&secondResponse); err != nil {
+		t.Fatalf("decode second metrics response: %v", err)
+	}
+	if secondResponse.Metrics.RequestsTotal != response.Metrics.RequestsTotal {
+		t.Fatalf("metrics scrape changed requests_total from %d to %d", response.Metrics.RequestsTotal, secondResponse.Metrics.RequestsTotal)
+	}
+}
+
+func TestStatliteMetricsOmitsUnavailableDisk(t *testing.T) {
+	memoryUsed, memoryTotal := 100.0, 200.0
+	statlite := New("127.0.0.1:0", nil)
+	statlite.hostSampler = &recordingHostSampler{
+		metrics: collector.HostMetrics{
+			MemoryUsedBytes:  &memoryUsed,
+			MemoryTotalBytes: &memoryTotal,
+		},
+		warnings: []error{fmt.Errorf("host disk usage unavailable")},
+	}
+
+	recorder := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	var raw map[string]any
+	if err := json.NewDecoder(recorder.Body).Decode(&raw); err != nil {
+		t.Fatalf("decode metrics: %v", err)
+	}
+	metrics := raw["metrics"].(map[string]any)
+	if _, exists := metrics["host_disk_used_bytes"]; exists {
+		t.Fatalf("metrics include unavailable disk used value: %#v", metrics)
+	}
+	if _, exists := metrics["host_disk_total_bytes"]; exists {
+		t.Fatalf("metrics include unavailable disk total value: %#v", metrics)
+	}
+	if metrics["host_memory_used_bytes"] != memoryUsed {
+		t.Fatalf("memory used = %v, want %v", metrics["host_memory_used_bytes"], memoryUsed)
+	}
+}
+
+func TestStatliteMetricsProfileIsConsumableByCanonicalCollector(t *testing.T) {
+	statlite := New("127.0.0.1:0", nil)
+	statlite.hostSampler = &recordingHostSampler{}
+	endpoint := httptest.NewServer(statlite.httpServer.Handler)
+	defer endpoint.Close()
+
+	client, err := collector.NewStatliteMetricsClient(endpoint.URL+"/statlite/metrics", time.Second)
+	if err != nil {
+		t.Fatalf("NewStatliteMetricsClient() error = %v", err)
+	}
+	result, err := collector.NewStatliteMetricsCollector("statlite-self", client).Collect(t.Context())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if result.HealthStatus != "UP" || result.ProcessStartTime == nil {
+		t.Fatalf("collection identity = %#v, want UP and process start time", result)
+	}
+	for _, sample := range result.Samples {
+		if sample.Key == "process_cpu_usage" {
+			if sample.Unit != "cores" || sample.Value < 0 {
+				t.Fatalf("process CPU sample = %#v, want non-negative cores", sample)
+			}
+			return
+		}
+	}
+	t.Fatal("collection missing process_cpu_usage sample")
 }
 
 func TestHealthzStaysOKWhenTargetPollingFails(t *testing.T) {
@@ -198,11 +306,8 @@ func TestHealthzStaysOKWhenTargetPollingFails(t *testing.T) {
 	if health.Version != version.Version {
 		t.Fatalf("health version = %q, want %q", health.Version, version.Version)
 	}
-	if health.Statlite.Storage.Status != "ok" {
-		t.Fatalf("storage status = %q, want ok", health.Statlite.Storage.Status)
-	}
-	if health.Statlite.Polling.ConsecutiveFailures < 1 {
-		t.Fatalf("consecutive_failures = %d, want at least 1", health.Statlite.Polling.ConsecutiveFailures)
+	if health.Storage.Status != "ok" {
+		t.Fatalf("storage status = %q, want ok", health.Storage.Status)
 	}
 }
 
@@ -248,8 +353,8 @@ func TestHealthzReportsErrorWhenStorageUnhealthy(t *testing.T) {
 	if health.Version != version.Version {
 		t.Fatalf("health version = %q, want %q", health.Version, version.Version)
 	}
-	if health.Statlite.Storage.Status != "error" {
-		t.Fatalf("storage status = %q, want error", health.Statlite.Storage.Status)
+	if health.Storage.Status != "error" {
+		t.Fatalf("storage status = %q, want error", health.Storage.Status)
 	}
 }
 
@@ -318,11 +423,8 @@ func TestDebugEndpointsAllowConcurrentPollAndLatestAccess(t *testing.T) {
 		t.Fatalf("decode healthz: %v", err)
 	}
 	resp.Body.Close()
-	if health.Statlite.Storage.Status != "ok" {
-		t.Fatalf("storage status = %q, want ok", health.Statlite.Storage.Status)
-	}
-	if health.Statlite.Storage.LastStoredPollID == 0 {
-		t.Fatalf("last_stored_poll_id = 0, want stored poll id")
+	if health.Storage.Status != "ok" {
+		t.Fatalf("storage status = %q, want ok", health.Storage.Status)
 	}
 
 	var wg sync.WaitGroup
