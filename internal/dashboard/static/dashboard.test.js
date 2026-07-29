@@ -6,6 +6,21 @@ const dashboard = require("./dashboard.js");
 beforeEach(resetDashboardState);
 afterEach(resetDashboardState);
 
+test("targetTypeHelp describes the StatLite Metrics application format", () => {
+  assert.equal(
+    dashboard.targetTypeHelp("statlite-metrics"),
+    "Monitors an app that exposes metrics in StatLite’s standard format."
+  );
+});
+
+test("periodic refresh keeps charts for a transient empty series", () => {
+  dashboard.state.renderedSeriesQuery = "?target=app&range=1h";
+
+  assert.equal(dashboard.shouldRenderSeries("?target=app&range=1h", { points: [] }), false);
+  assert.equal(dashboard.shouldRenderSeries("?target=app&range=7d", { points: [] }), true);
+  assert.equal(dashboard.shouldRenderSeries("?target=app&range=1h", { points: [{}] }), true);
+});
+
 test("detectCapabilities keeps sparse memory but requires a valid disk pair", () => {
   const sparseMemory = dashboard.detectCapabilities([{ host_memory_used_bytes: 10 }]);
   assert.equal(sparseMemory.host, true);
@@ -184,4 +199,5 @@ function resetDashboardState() {
   dashboard.state.charts = {};
   dashboard.state.refreshID = 0;
   dashboard.state.refreshController = null;
+  dashboard.state.renderedSeriesQuery = "";
 }

@@ -5,7 +5,8 @@ const state = {
   target: "",
   charts: {},
   refreshID: 0,
-  refreshController: null
+  refreshController: null,
+  renderedSeriesQuery: ""
 };
 
 const palette = {
@@ -186,7 +187,10 @@ async function refresh() {
     state.target = (summary.selected_target && summary.selected_target.name) || state.target;
     updateURL();
     renderSummary(summary);
-    renderSeries(series);
+    if (shouldRenderSeries(query, series)) {
+      renderSeries(series);
+      state.renderedSeriesQuery = query;
+    }
     renderEvents(events);
     document.getElementById("latest-json").textContent = JSON.stringify(summary.latest || {}, null, 2);
   } catch (error) {
@@ -357,6 +361,13 @@ function renderSeries(series) {
   setCurrentResourceNote("host-disk-note", series.current_host_disk, "Disk");
 }
 
+// Retain displayed charts if a periodic refresh temporarily returns no points
+// for the same target and range. A target or range change still renders its
+// empty state normally.
+function shouldRenderSeries(query, series) {
+  return (series.points || []).length > 0 || state.renderedSeriesQuery !== query;
+}
+
 function detectCapabilities(points) {
   const requests = points.some((point) => point.requests != null);
   const errors = points.some((point) => point.http_404 != null || point.http_4xx != null || point.http_5xx != null);
@@ -460,7 +471,7 @@ function targetTypeHelp(value) {
   case "spring":
     return "Monitors a Spring Boot application through its Actuator endpoint.";
   case "statlite-metrics":
-    return "Monitors a StatLite Metrics v1 profile.";
+    return "Monitors an app that exposes metrics in StatLite’s standard format.";
   default:
     return "Collector details are unavailable for this target type.";
   }
@@ -549,6 +560,6 @@ function initDashboard() {
   setInterval(refresh, 30000);
 }
 
-const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderPollStatus, renderSeries, state, validDiskPoint };
+const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderPollStatus, renderSeries, shouldRenderSeries, state, targetTypeHelp, validDiskPoint };
 if (typeof module !== "undefined" && module.exports) module.exports = dashboardTestHooks;
 if (typeof document !== "undefined") initDashboard();
