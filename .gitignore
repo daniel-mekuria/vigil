@@ -7,6 +7,7 @@
 *.sqlite-shm
 *.sqlite-wal
 config.yaml
+AGENTS.local.md
 
 # Release archives
 *.tar.gz

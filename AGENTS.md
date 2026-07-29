@@ -3,6 +3,8 @@
 
 Guidance for AI coding agents working on StatLite.
 
+If `AGENTS.local.md` exists, read it after this file.
+
 ## Project Summary
 
 StatLite is a tiny self-hosted metrics dashboard for small servers.
