@@ -8,9 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -71,24 +68,6 @@ func TestRootServesDashboardPage(t *testing.T) {
 		if strings.Contains(content, legacy) {
 			t.Fatalf("root page retains legacy collector help %q", legacy)
 		}
-	}
-}
-
-func TestDashboardJavaScriptUnitTests(t *testing.T) {
-	if os.Getenv("STATLITE_SKIP_DASHBOARD_JAVASCRIPT_TEST") != "" {
-		t.Skip("dashboard JavaScript unit tests run separately")
-	}
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node is unavailable; dashboard JavaScript unit tests skipped")
-	}
-	testFile := filepath.Join("..", "dashboard", "static", "dashboard.test.js")
-	if _, err := os.ReadFile(testFile); err != nil {
-		t.Fatalf("read dashboard JavaScript unit tests: %v", err)
-	}
-	command := exec.Command(node, "--test", testFile)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("dashboard JavaScript unit tests failed: %v\n%s", err, output)
 	}
 }
 

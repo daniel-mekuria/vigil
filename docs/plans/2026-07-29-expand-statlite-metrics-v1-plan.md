@@ -414,10 +414,10 @@ Checklist:
 - [x] (test) Keep at most one small DOM integration test for applying capability
   results to section visibility. Do not duplicate the full dashboard DOM.
 - [x] (impl) Replace the Go test's inline JavaScript harness and source-text
-  replacement with execution of the dedicated JavaScript test file.
-- [x] (impl) Allow `go test ./...` to skip the JavaScript test when Node is
-  unavailable locally, but configure CI to run the JavaScript tests explicitly
-  so they remain enforced.
+  replacement with the dedicated JavaScript test file, executed directly by
+  CI.
+- [x] (impl) Keep `go test ./...` independent of Node; configure CI to run the
+  JavaScript tests explicitly so they remain enforced.
 - [x] (verify) Run:
   - `node --test internal/dashboard/static/dashboard.test.js`
   - `go test ./...`
