@@ -25,3 +25,22 @@ func TestBuildSeriesPointDerivesHostPercentagesOnlyFromValidPairs(t *testing.T) 
 		t.Fatalf("usage = memory %v disk %v, want nil for invalid pairs", point.HostMemoryUsage, point.HostDiskUsage)
 	}
 }
+
+func TestSetCurrentHostDiskUsesOnlyTheLatestPoint(t *testing.T) {
+	series := &Series{Points: []SeriesPoint{
+		{HostDiskUsedBytes: floatPtr(40), HostDiskTotalBytes: floatPtr(100), HostDiskUsage: floatPtr(0.4)},
+		{HostMemoryUsedBytes: floatPtr(10)},
+	}}
+	setCurrentHostDisk(series)
+	if series.CurrentHostDisk != nil {
+		t.Fatalf("current host disk = %#v, want nil when latest point omits disk", series.CurrentHostDisk)
+	}
+
+	series.Points = series.Points[:1]
+	setCurrentHostDisk(series)
+	if series.CurrentHostDisk == nil || series.CurrentHostDisk.UsedBytes != 40 || series.CurrentHostDisk.TotalBytes != 100 || series.CurrentHostDisk.Usage != 0.4 {
+		t.Fatalf("current host disk = %#v, want latest complete observation", series.CurrentHostDisk)
+	}
+}
+
+func floatPtr(value float64) *float64 { return &value }

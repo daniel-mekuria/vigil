@@ -18,9 +18,19 @@ type Snapshot struct {
 }
 
 type Series struct {
-	Start  time.Time     `json:"start"`
-	End    time.Time     `json:"end"`
-	Points []SeriesPoint `json:"points"`
+	Start           time.Time        `json:"start"`
+	End             time.Time        `json:"end"`
+	Points          []SeriesPoint    `json:"points"`
+	CurrentHostDisk *HostDiskCurrent `json:"current_host_disk,omitempty"`
+}
+
+// HostDiskCurrent is one complete, unaggregated disk observation for a series.
+// It is kept separate from downsampled chart values so a current-value display
+// never combines values from different polls.
+type HostDiskCurrent struct {
+	UsedBytes  float64 `json:"used_bytes"`
+	TotalBytes float64 `json:"total_bytes"`
+	Usage      float64 `json:"usage"`
 }
 
 type SeriesPoint struct {

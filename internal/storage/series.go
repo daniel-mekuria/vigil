@@ -103,8 +103,28 @@ ORDER BY p.started_at ASC, p.id ASC, ms.metric_key ASC
 	if err := flush(); err != nil {
 		return nil, err
 	}
+	setCurrentHostDisk(series)
 
 	return series, nil
+}
+
+func setCurrentHostDisk(series *Series) {
+	if series == nil {
+		return
+	}
+	series.CurrentHostDisk = nil
+	if len(series.Points) == 0 {
+		return
+	}
+	point := series.Points[len(series.Points)-1]
+	if point.HostDiskUsedBytes == nil || point.HostDiskTotalBytes == nil || point.HostDiskUsage == nil {
+		return
+	}
+	series.CurrentHostDisk = &HostDiskCurrent{
+		UsedBytes:  *point.HostDiskUsedBytes,
+		TotalBytes: *point.HostDiskTotalBytes,
+		Usage:      *point.HostDiskUsage,
+	}
 }
 
 type pollSamples struct {

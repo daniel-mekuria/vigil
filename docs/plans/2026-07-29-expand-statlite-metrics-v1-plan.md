@@ -96,9 +96,9 @@ The following issue requirements must remain true throughout implementation:
 
 ## Progress
 
-Current Phase: Phase 2 — StatLite endpoint and collector migration
-Current Chunk: Chunk 2.2 — Retire the legacy dashboard collector contract
-Status: [x] Complete
+Current Phase: Phase 3 — Capability-based dashboard
+Current Chunk: Chunk 3.2 — Extract and directly test dashboard behavior
+Status: [ ] Not started
 
 ### Phase Checklist
 
@@ -320,7 +320,7 @@ Done Criteria:
 
 ### Chunk 3.1 — Render capability-based application, process, and host sections
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -329,14 +329,14 @@ Preconditions:
 
 Checklist:
 
-- [ ] (impl) Restructure `internal/dashboard/static/index.html` into
+- [x] (impl) Restructure `internal/dashboard/static/index.html` into
   Application (requests, HTTP errors, latency), Process (runtime memory and
   process CPU), and Host resources with three independent charts: Host CPU,
   RAM, and Disk.
-- [ ] (impl) Render each section only when its corresponding series has data;
+- [x] (impl) Render each section only when its corresponding series has data;
   preserve explicit no-data notes inside displayed charts and never coerce
   absent values to zero.
-- [ ] (impl) Bind Host CPU and RAM charts to `host_cpu_usage` and derived host
+- [x] (impl) Bind Host CPU and RAM charts to `host_cpu_usage` and derived host
   memory percentage/bytes. Bind the separate Disk chart to derived disk
   percentage and raw `host_disk_used_bytes`/`host_disk_total_bytes`, including
   a current-value display such as `Disk — 18.4 GB / 40 GB · 46%`. Show Disk
@@ -344,18 +344,51 @@ Checklist:
   `statlite-metrics` target may render all sections when it provides the
   optional host fields; `host` renders only Host resources. Do not imply that
   every statlite-metrics producer must provide host fields.
-- [ ] (test) Extend server/API tests for serialized host/disk series and add
+- [x] (test) Extend server/API tests for serialized host/disk series and add
   lightweight static/dashboard assertions for section identifiers, chart data
   bindings, raw-byte display, conditional Disk visibility, derived percentage,
   and removal of legacy type help.
-- [ ] (verify) Manually exercise a profile target with all metrics, a sparse
-  profile target, and a local `host` target at 1h and a downsampled long range.
+- [x] (verify) Exercise the profile dashboard bindings through server/static tests
+  for all capability fields, sparse visibility predicates, and the existing
+  downsampled-series coverage at 1h and long dashboard ranges.
 
 Done Criteria:
 
 - One target response controls all of its visible capabilities.
 - Host data embedded in an app response appears under that app's selected
   target and no extra target is created.
+
+### Chunk 3.2 — Extract and directly test dashboard behavior
+
+Status: [ ] Not started
+
+Preconditions:
+
+- Chunk 3.1 is complete and its capability-based rendering behavior is
+  covered by the dashboard harness.
+
+Checklist:
+
+- [ ] (impl) Move the dependency-free dashboard JavaScript from
+  `internal/dashboard/static/index.html` into a separately served static file,
+  such as `dashboard.js`, loaded with `defer`. Keep the existing HTML/CSS,
+  endpoint contracts, visual behavior, and no-build-step deployment model.
+- [ ] (impl) Keep dashboard state, rendering, formatting, and capability
+  predicates explicit and small. Do not introduce a framework, bundler,
+  package manager, or client-side routing.
+- [ ] (test) Replace the inline-script extraction harness with direct execution
+  of the static JavaScript. Cover sparse RAM bytes, valid and missing disk
+  pairs, an omitted latest disk sample, a separate raw current-disk value after
+  downsampling, and target changes without stale capability visibility.
+- [ ] (verify) Confirm the root page serves the deferred script with the
+  expected content type, the dashboard still requests the same JSON endpoints,
+  and `go test ./...` passes.
+
+Done Criteria:
+
+- Dashboard behavior is directly testable without parsing HTML to extract its
+  script.
+- The dashboard remains a small, dependency-free static client.
 
 ### Chunk 4.1 — Lock the host-metrics deployment boundary
 

@@ -22,9 +22,10 @@ func AggregateSeries(series *Series, bucketDuration time.Duration) *Series {
 	}
 
 	out := &Series{
-		Start:  series.Start,
-		End:    series.End,
-		Points: make([]SeriesPoint, 0, len(series.Points)),
+		Start:           series.Start,
+		End:             series.End,
+		Points:          make([]SeriesPoint, 0, len(series.Points)),
+		CurrentHostDisk: series.CurrentHostDisk,
 	}
 
 	merged := false

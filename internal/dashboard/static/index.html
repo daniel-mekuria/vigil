@@ -276,6 +276,17 @@ main {
   gap: 14px;
   min-width: 0;
 }
+.capability-section {
+  margin-top: 18px;
+}
+.capability-section[hidden] {
+  display: none;
+}
+.capability-section > h2 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-size: 17px;
+}
 .chart {
   overflow: hidden;
   min-height: 300px;
@@ -427,7 +438,9 @@ pre {
     <div class="metric"><div class="label">Polled</div><div id="last-poll" class="value small">...</div></div>
   </section>
 
-  <section class="chart-grid" aria-label="Charts">
+  <section id="application-section" class="capability-section" aria-labelledby="application-heading">
+    <h2 id="application-heading">Application</h2>
+    <div class="chart-grid">
     <div class="chart">
       <div class="chart-head"><h2>Requests</h2><div id="requests-note" class="note"></div></div>
       <div class="canvas-wrap"><canvas id="requests-chart"></canvas></div>
@@ -440,9 +453,34 @@ pre {
       <div class="chart-head"><h2 class="label-help">Average latency <button type="button" class="help" aria-label="Average latency help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Average request time for each interval, not a percentile.</span></h2><div id="latency-note" class="note"></div></div>
       <div class="canvas-wrap"><canvas id="latency-chart"></canvas></div>
     </div>
-    <div class="chart">
-      <div class="chart-head"><h2 class="label-help">Runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
-      <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
+    </div>
+  </section>
+
+  <section id="process-section" class="capability-section" aria-labelledby="process-heading">
+    <h2 id="process-heading">Process</h2>
+    <div class="chart-grid">
+      <div class="chart">
+        <div class="chart-head"><h2 class="label-help">Runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
+        <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="host-section" class="capability-section" aria-labelledby="host-heading">
+    <h2 id="host-heading">Host resources</h2>
+    <div class="chart-grid">
+      <div id="host-cpu-chart-card" class="chart">
+        <div class="chart-head"><h2>Host CPU</h2><div id="host-cpu-note" class="note"></div></div>
+        <div class="canvas-wrap"><canvas id="host-cpu-chart"></canvas></div>
+      </div>
+      <div id="host-memory-chart-card" class="chart">
+        <div class="chart-head"><h2>RAM</h2><div id="host-memory-note" class="note"></div></div>
+        <div class="canvas-wrap"><canvas id="host-memory-chart"></canvas></div>
+      </div>
+      <div id="host-disk-chart-card" class="chart">
+        <div class="chart-head"><h2>Disk</h2><div id="host-disk-note" class="note"></div></div>
+        <div class="canvas-wrap"><canvas id="host-disk-chart"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -469,6 +507,7 @@ const palette = {
   latency: "#2fd36b",
   heap: "#60a5fa",
   cpu: "#2fd36b",
+  total: "#a78bfa",
   http404: "#f59e0b",
   http4xx: "#a78bfa",
   http5xx: "#ef4444",
@@ -550,9 +589,28 @@ function buildCharts() {
     type: "line",
     data: { labels: [], datasets: [
       { label: "Runtime memory MB", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
-      { label: "CPU %", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
+      { label: "CPU cores", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
     ] },
     options: runtimeOptions()
+  });
+  state.charts.hostCPU = new Chart(document.getElementById("host-cpu-chart"), {
+    type: "line",
+    data: { labels: [], datasets: [{ label: "Host CPU", data: [], borderColor: palette.cpu, ...lineStyle, tension: 0.25, spanGaps: false }] },
+    options: chartOptions("percent")
+  });
+  state.charts.hostMemory = resourceChart("host-memory-chart", "RAM");
+  state.charts.hostDisk = resourceChart("host-disk-chart", "Disk");
+}
+
+function resourceChart(id, label) {
+  return new Chart(document.getElementById(id), {
+    type: "line",
+    data: { labels: [], datasets: [
+      { label: label + " used", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
+      { label: label + " total", data: [], borderColor: palette.total, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
+      { label: label + " usage", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
+    ] },
+    options: resourceOptions()
   });
 }
 
@@ -578,9 +636,20 @@ function runtimeOptions() {
   options.scales = {
     x: { ticks: { color: palette.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
     y: { beginAtZero: true, position: "left", title: { display: true, text: "MB", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { color: palette.grid } },
-    y1: { beginAtZero: true, position: "right", title: { display: true, text: "%", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
+    y1: { beginAtZero: true, position: "right", title: { display: true, text: "cores", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
   };
-  options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.label.includes("CPU") ? "percent" : "mb");
+  options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.label.includes("CPU") ? "cores" : "mb");
+  return options;
+}
+
+function resourceOptions() {
+  const options = chartOptions("");
+  options.scales = {
+    x: { ticks: { color: palette.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
+    y: { beginAtZero: true, position: "left", title: { display: true, text: "GB", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { color: palette.grid } },
+    y1: { beginAtZero: true, max: 100, position: "right", title: { display: true, text: "%", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
+  };
+  options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.label.includes("usage") ? "percent" : "gb");
   return options;
 }
 
@@ -713,12 +782,61 @@ function renderSeries(series) {
   updateChart(state.charts.latency, labels, [points.map((point) => point.average_latency_seconds)]);
   updateChart(state.charts.runtime, labels, [
     points.map((point) => point.heap_used_bytes == null ? null : point.heap_used_bytes / 1024 / 1024),
-    points.map((point) => point.process_cpu_usage == null ? null : point.process_cpu_usage * 100)
+    points.map((point) => point.process_cpu_usage)
   ]);
-  setNote("requests-note", points.some((point) => point.requests != null));
-  setNote("errors-note", points.some((point) => point.http_404 != null || point.http_4xx != null || point.http_5xx != null));
-  setNote("latency-note", points.some((point) => point.average_latency_seconds != null));
-  setNote("runtime-note", points.some((point) => point.heap_used_bytes != null || point.process_cpu_usage != null));
+  updateChart(state.charts.hostCPU, labels, [points.map((point) => point.host_cpu_usage == null ? null : point.host_cpu_usage * 100)]);
+  updateChart(state.charts.hostMemory, labels, [
+    points.map((point) => bytesToGB(point.host_memory_used_bytes)),
+    points.map((point) => bytesToGB(point.host_memory_total_bytes)),
+    points.map((point) => point.host_memory_usage == null ? null : point.host_memory_usage * 100)
+  ]);
+  updateChart(state.charts.hostDisk, labels, [
+    points.map((point) => bytesToGB(point.host_disk_used_bytes)),
+    points.map((point) => bytesToGB(point.host_disk_total_bytes)),
+    points.map((point) => point.host_disk_usage == null ? null : point.host_disk_usage * 100)
+  ]);
+
+  const hasRequests = points.some((point) => point.requests != null);
+  const hasErrors = points.some((point) => point.http_404 != null || point.http_4xx != null || point.http_5xx != null);
+  const hasLatency = points.some((point) => point.average_latency_seconds != null);
+  const hasProcess = points.some((point) => point.heap_used_bytes != null || point.process_cpu_usage != null);
+  const hasHostCPU = points.some((point) => point.host_cpu_usage != null);
+  const hasHostMemory = points.some((point) => point.host_memory_used_bytes != null || point.host_memory_total_bytes != null);
+  const hasDisk = points.some(validDiskPoint);
+  setSectionVisible("application-section", hasRequests || hasErrors || hasLatency);
+  setSectionVisible("process-section", hasProcess);
+  setSectionVisible("host-section", hasHostCPU || hasHostMemory || hasDisk);
+  setSectionVisible("host-cpu-chart-card", hasHostCPU);
+  setSectionVisible("host-memory-chart-card", hasHostMemory);
+  setSectionVisible("host-disk-chart-card", hasDisk);
+  setNote("requests-note", hasRequests);
+  setNote("errors-note", hasErrors);
+  setNote("latency-note", hasLatency);
+  setNote("runtime-note", hasProcess);
+  setNote("host-cpu-note", hasHostCPU);
+  setNote("host-memory-note", hasHostMemory);
+  setCurrentResourceNote("host-disk-note", series.current_host_disk, "Disk");
+}
+
+function setSectionVisible(id, visible) {
+  document.getElementById(id).hidden = !visible;
+}
+
+function validDiskPoint(point) {
+  return point.host_disk_usage != null && point.host_disk_used_bytes != null && point.host_disk_total_bytes != null;
+}
+
+function setCurrentResourceNote(id, point, label) {
+  const note = document.getElementById(id);
+  if (!point) {
+    note.textContent = "No data";
+    return;
+  }
+  note.textContent = label + " — " + formatBytes(point.used_bytes) + " / " + formatBytes(point.total_bytes) + " · " + formatValue(point.usage * 100, "percent");
+}
+
+function bytesToGB(value) {
+  return value == null ? null : value / 1024 / 1024 / 1024;
 }
 
 function updateChart(chart, labels, values) {
@@ -787,6 +905,8 @@ function targetTypeHelp(value) {
     return "Monitors a Spring Boot application through its Actuator endpoint.";
   case "statlite-metrics":
     return "Monitors a StatLite Metrics v1 profile.";
+  case "host":
+    return "Monitors local host CPU, memory, and disk resources.";
   default:
     return "Collector details are unavailable for this target type.";
   }
@@ -839,7 +959,21 @@ function formatValue(value, unit) {
   if (unit === "seconds") return value.toFixed(3) + " s";
   if (unit === "percent") return value.toFixed(1) + "%";
   if (unit === "mb") return value.toFixed(1) + " MB";
+  if (unit === "gb") return value.toFixed(1) + " GB";
+  if (unit === "cores") return value.toFixed(2) + " cores";
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function formatBytes(value) {
+  if (value == null || Number.isNaN(value)) return "Unknown";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit++;
+  }
+  return (unit === 0 ? String(Math.round(size)) : size.toFixed(1)) + " " + units[unit];
 }
 
 function initializeFromURL() {

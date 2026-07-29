@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/pvrlabs/statlite/internal/collector"
+	"github.com/pvrlabs/statlite/internal/dashboard"
 	"github.com/pvrlabs/statlite/internal/monitor"
 	"github.com/pvrlabs/statlite/internal/storage"
 	"github.com/pvrlabs/statlite/internal/version"
@@ -47,6 +49,23 @@ func TestRootServesDashboardPage(t *testing.T) {
 		"Requests",
 		"HTTP errors",
 		"Average latency",
+		`id="application-section"`,
+		"Application",
+		`id="process-section"`,
+		"Process",
+		`id="host-section"`,
+		"Host resources",
+		`id="host-cpu-chart"`,
+		`id="host-memory-chart"`,
+		`id="host-disk-chart"`,
+		"host_cpu_usage",
+		"host_memory_usage",
+		"host_disk_usage",
+		"host_disk_used_bytes",
+		"host_disk_total_bytes",
+		"validDiskPoint",
+		"formatBytes",
+		`case "host":`,
 		"Recent events",
 		`fetchJSON("/api/series" + query)`,
 		`fetchJSON("/api/events" + query + "&limit=20")`,
@@ -55,6 +74,42 @@ func TestRootServesDashboardPage(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Fatalf("root page missing %q", want)
 		}
+	}
+	for _, legacy := range []string{"statlite-health", `case "statlite":`} {
+		if strings.Contains(content, legacy) {
+			t.Fatalf("root page retains legacy collector help %q", legacy)
+		}
+	}
+}
+
+func TestDashboardRenderSeriesHandlesSparseHostCapabilities(t *testing.T) {
+	const harness = `
+const vm = require("vm");
+let source = process.argv[1].match(/<script>([\s\S]*)<\/script>/)[1];
+source = source.replace(/initializeFromURL\(\);\nbuildCharts\(\);\nrefresh\(\);\nsetInterval\(refresh, 30000\);/, "globalThis.renderForTest = renderSeries; globalThis.chartState = state;");
+const elements = new Map();
+const element = () => ({ hidden: false, textContent: "", className: "", title: "", innerHTML: "", children: [], classList: { toggle() {} }, addEventListener() {}, setAttribute() {} });
+const document = { querySelectorAll() { return []; }, getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); }, addEventListener() {} };
+const sandbox = { document, URLSearchParams, window: { location: { search: "", pathname: "/" }, history: { replaceState() {} } }, setInterval() {} };
+vm.runInNewContext(source, sandbox);
+const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
+sandbox.chartState.charts = { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
+const render = sandbox.renderForTest;
+const get = (id) => document.getElementById(id);
+render({ points: [{ host_memory_used_bytes: 10 }] });
+if (get("host-section").hidden || get("host-memory-chart-card").hidden) throw new Error("sparse RAM bytes should remain visible");
+if (!get("host-disk-chart-card").hidden) throw new Error("disk needs a valid pair");
+render({ points: [
+  { host_disk_used_bytes: 10, host_disk_total_bytes: 20, host_disk_usage: 0.5 },
+  { host_memory_used_bytes: 11 }
+], current_host_disk: null });
+if (get("host-disk-note").textContent !== "No data") throw new Error("old disk sample must not be presented as current");
+render({ points: [], current_host_disk: { used_bytes: 30, total_bytes: 60, usage: 0.5 } });
+if (!get("host-disk-note").textContent.includes("30 B / 60 B · 50.0%")) throw new Error("current disk note must use the separate raw observation");
+`
+	command := exec.Command("node", "-e", harness, dashboard.Page)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("dashboard render harness failed: %v\n%s", err, output)
 	}
 }
 
@@ -528,6 +583,72 @@ func TestHandleSeriesReturnsDataAfterPoll(t *testing.T) {
 	}
 	if seriesResp.Points[0].Requests != nil {
 		t.Fatalf("first poll requests delta = %v, want nil (no previous)", *seriesResp.Points[0].Requests)
+	}
+}
+
+func TestHandleSeriesSerializesHostResourceFields(t *testing.T) {
+	store, err := storage.Open(t.Context(), t.TempDir()+"/statlite.sqlite")
+	if err != nil {
+		t.Fatalf("storage.Open() error = %v", err)
+	}
+	defer store.Close()
+
+	now := time.Now().UTC()
+	mon, err := monitor.New("host", &sequenceCollector{results: []collectResult{{result: &collector.CollectionResult{
+		TargetName:     "host",
+		PollStartedAt:  now,
+		PollFinishedAt: now.Add(time.Second),
+		HealthStatus:   "UP",
+		Samples: []collector.MetricSample{
+			{Key: "host_cpu_usage", Kind: collector.MetricKindGauge, Value: 0.25, Unit: "ratio"},
+			{Key: "host_memory_used_bytes", Kind: collector.MetricKindGauge, Value: 30, Unit: "bytes"},
+			{Key: "host_memory_total_bytes", Kind: collector.MetricKindGauge, Value: 100, Unit: "bytes"},
+			{Key: "host_disk_used_bytes", Kind: collector.MetricKindGauge, Value: 40, Unit: "bytes"},
+			{Key: "host_disk_total_bytes", Kind: collector.MetricKindGauge, Value: 200, Unit: "bytes"},
+		},
+	}}}}, store, time.Minute)
+	if err != nil {
+		t.Fatalf("monitor.New() error = %v", err)
+	}
+
+	statlite := New("127.0.0.1:0", mon)
+	server := httptest.NewServer(statlite.httpServer.Handler)
+	defer server.Close()
+	pollResp, err := http.Get(server.URL + "/debug/poll-now")
+	if err != nil {
+		t.Fatalf("poll-now request: %v", err)
+	}
+	pollResp.Body.Close()
+	if pollResp.StatusCode != http.StatusOK {
+		t.Fatalf("poll-now status = %d, want 200", pollResp.StatusCode)
+	}
+
+	resp, err := http.Get(server.URL + "/api/series?range=1h")
+	if err != nil {
+		t.Fatalf("series request: %v", err)
+	}
+	defer resp.Body.Close()
+	var series storage.Series
+	if err := json.NewDecoder(resp.Body).Decode(&series); err != nil {
+		t.Fatalf("decode series: %v", err)
+	}
+	if len(series.Points) != 1 {
+		t.Fatalf("series points = %d, want 1", len(series.Points))
+	}
+	point := series.Points[0]
+	assertServerFloatPointer(t, "host_cpu_usage", point.HostCPUUsage, 0.25)
+	assertServerFloatPointer(t, "host_memory_used_bytes", point.HostMemoryUsedBytes, 30)
+	assertServerFloatPointer(t, "host_memory_total_bytes", point.HostMemoryTotalBytes, 100)
+	assertServerFloatPointer(t, "host_memory_usage", point.HostMemoryUsage, 0.3)
+	assertServerFloatPointer(t, "host_disk_used_bytes", point.HostDiskUsedBytes, 40)
+	assertServerFloatPointer(t, "host_disk_total_bytes", point.HostDiskTotalBytes, 200)
+	assertServerFloatPointer(t, "host_disk_usage", point.HostDiskUsage, 0.2)
+}
+
+func assertServerFloatPointer(t *testing.T, name string, got *float64, want float64) {
+	t.Helper()
+	if got == nil || *got != want {
+		t.Fatalf("%s = %v, want %v", name, got, want)
 	}
 }
 
