@@ -453,16 +453,10 @@ pre {
       <div class="chart-head"><h2 class="label-help">Average latency <button type="button" class="help" aria-label="Average latency help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Average request time for each interval, not a percentile.</span></h2><div id="latency-note" class="note"></div></div>
       <div class="canvas-wrap"><canvas id="latency-chart"></canvas></div>
     </div>
+    <div id="process-section" class="chart">
+      <div class="chart-head"><h2 class="label-help">Process runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
+      <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
     </div>
-  </section>
-
-  <section id="process-section" class="capability-section" aria-labelledby="process-heading">
-    <h2 id="process-heading">Process</h2>
-    <div class="chart-grid">
-      <div class="chart">
-        <div class="chart-head"><h2 class="label-help">Runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
-        <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
-      </div>
     </div>
   </section>
 

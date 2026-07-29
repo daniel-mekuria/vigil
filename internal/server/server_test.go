@@ -69,6 +69,9 @@ func TestRootServesDashboardPage(t *testing.T) {
 			t.Fatalf("root page retains legacy collector help %q", legacy)
 		}
 	}
+	if latency, process, host := strings.Index(content, "Average latency"), strings.Index(content, `id="process-section"`), strings.Index(content, `id="host-section"`); latency == -1 || process == -1 || host == -1 || !(latency < process && process < host) {
+		t.Fatalf("dashboard cards are not ordered as application, process, then host: latency=%d process=%d host=%d", latency, process, host)
+	}
 }
 
 func TestDashboardScriptServedAsJavaScript(t *testing.T) {
