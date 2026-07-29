@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -72,56 +74,21 @@ func TestRootServesDashboardPage(t *testing.T) {
 	}
 }
 
-func TestDashboardRenderSeriesHandlesSparseHostCapabilities(t *testing.T) {
-	const harness = `
-const vm = require("vm");
-const source = process.argv[1];
-const elements = new Map();
-const element = () => ({ hidden: false, textContent: "", className: "", title: "", innerHTML: "", children: [], classList: { toggle() {} }, addEventListener() {}, setAttribute() {} });
-const document = { querySelectorAll() { return []; }, getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); }, addEventListener() {} };
-const pending = [];
-const requests = [];
-const fetch = (path, options) => new Promise((resolve) => { requests.push({ path, signal: options.signal }); pending.push(resolve); });
-class AbortController { constructor() { this.signal = { aborted: false }; } abort() { this.signal.aborted = true; } }
-const sandbox = { document, URLSearchParams, window: { location: { search: "", pathname: "/" }, history: { replaceState() {} } }, setInterval() {}, fetch, AbortController, __STATLITE_DASHBOARD_NO_AUTO_INIT__: true };
-vm.runInNewContext(source, sandbox);
-const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
-sandbox.statliteDashboardTestHooks.state.charts = { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
-const render = sandbox.statliteDashboardTestHooks.renderSeries;
-const get = (id) => document.getElementById(id);
-render({ points: [{ host_memory_used_bytes: 10 }] });
-if (get("host-section").hidden || get("host-memory-chart-card").hidden) throw new Error("sparse RAM bytes should remain visible");
-if (!get("host-disk-chart-card").hidden) throw new Error("disk needs a valid pair");
-render({ points: [] });
-if (!get("host-section").hidden) throw new Error("a target without host data must clear prior host visibility");
-render({ points: [
-  { host_disk_used_bytes: 10, host_disk_total_bytes: 20, host_disk_usage: 0.5 },
-  { host_memory_used_bytes: 11 }
-], current_host_disk: null });
-if (get("host-disk-note").textContent !== "No data") throw new Error("old disk sample must not be presented as current");
-render({ points: [], current_host_disk: { used_bytes: 30, total_bytes: 60, usage: 0.5 } });
-if (!get("host-disk-note").textContent.includes("30 B / 60 B · 50.0%")) throw new Error("current disk note must use the separate raw observation");
-(async () => {
-  const response = (value) => ({ ok: true, json: () => Promise.resolve(value) });
-  const summary = (name) => ({ selected_target: { name }, targets: [], monitor: {}, latest: {} });
-  const first = sandbox.statliteDashboardTestHooks.refresh();
-  sandbox.statliteDashboardTestHooks.state.target = "beta";
-  const second = sandbox.statliteDashboardTestHooks.refresh();
-  if (!requests[0].signal.aborted) throw new Error("new refresh did not abort the superseded request");
-  pending.splice(3, 3).forEach((resolve, index) => resolve(response(index === 0 ? summary("beta") : index === 1 ? { points: [] } : [])));
-  await second;
-  pending.splice(0, 3).forEach((resolve, index) => resolve(response(index === 0 ? summary("alpha") : index === 1 ? { points: [] } : [])));
-  await first;
-  if (sandbox.statliteDashboardTestHooks.state.target !== "beta") throw new Error("stale refresh overwrote the selected target");
-})().catch((error) => { console.error(error); process.exitCode = 1; });
-`
+func TestDashboardJavaScriptUnitTests(t *testing.T) {
+	if os.Getenv("STATLITE_SKIP_DASHBOARD_JAVASCRIPT_TEST") != "" {
+		t.Skip("dashboard JavaScript unit tests run separately")
+	}
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node is unavailable; dashboard JavaScript harness skipped")
+		t.Skip("node is unavailable; dashboard JavaScript unit tests skipped")
 	}
-	command := exec.Command(node, "-e", harness, dashboard.Script)
+	testFile := filepath.Join("..", "dashboard", "static", "dashboard.test.js")
+	if _, err := os.ReadFile(testFile); err != nil {
+		t.Fatalf("read dashboard JavaScript unit tests: %v", err)
+	}
+	command := exec.Command(node, "--test", testFile)
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("dashboard render harness failed: %v\n%s", err, output)
+		t.Fatalf("dashboard JavaScript unit tests failed: %v\n%s", err, output)
 	}
 }
 

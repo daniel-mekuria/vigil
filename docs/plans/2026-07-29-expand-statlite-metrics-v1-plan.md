@@ -97,7 +97,7 @@ The following issue requirements must remain true throughout implementation:
 ## Progress
 
 Current Phase: Phase 3 — Capability-based dashboard
-Current Chunk: Chunk 3.2 — Extract and directly test dashboard behavior
+Current Chunk: Chunk 3.3 — Establish lightweight JavaScript unit testing
 Status: [x] Complete
 
 ### Phase Checklist
@@ -154,7 +154,8 @@ range/downsampling behavior and do not add custom chart configuration.
 
 Exit Criteria: Application/process/host sections have correct conditional
 visibility, use the shared series fields, and show no-data states without
-turning missing optional metrics into zero.
+turning missing optional metrics into zero. Dashboard behavior is directly
+covered by lightweight JavaScript unit tests.
 
 ### Phase 4 — Config, examples, documentation, and regression verification
 
@@ -165,6 +166,8 @@ implementation.
 Boundaries: Keep `/healthz` documentation limited to operational readiness;
 do not broaden supported integrations. Document deployment topology and the
 remote-host boundary without requiring framework-specific host collectors.
+
+Preconditions: Chunks 1.1 through 3.3 are complete.
 
 Exit Criteria: Docs/examples contain no preferred healthz monitoring path,
 FastAPI emits a valid application/process profile, deployment guidance covers
@@ -390,13 +393,70 @@ Done Criteria:
   script.
 - The dashboard remains a small, dependency-free static client.
 
+### Chunk 3.3 — Establish lightweight JavaScript unit testing
+
+Status: [x] Complete
+
+Preconditions:
+
+- Chunk 3.2 is complete.
+- Dashboard behavior lives in `internal/dashboard/static/dashboard.js`.
+- Production deployment must remain dependency-free and require no JavaScript
+  build step.
+
+Boundaries:
+
+- Use Node's built-in `node:test` and `node:assert/strict`.
+- Do not add npm dependencies, `node_modules`, jsdom, a bundler, a frontend
+  framework, browser automation, or a package manager requirement.
+- Keep production browser behavior unchanged.
+- Prefer pure-function tests and use only a minimal DOM stub for behavior that
+  genuinely requires DOM interaction.
+
+Checklist:
+
+- [x] (design) Define a small test surface for dashboard behavior. Prioritize
+  capability detection, disk-pair validation, formatting, and stale
+  target/range response handling.
+- [x] (impl) Introduce an explicit dashboard initialization function so loading
+  the JavaScript file does not require tests to rewrite or remove an exact
+  source footer.
+- [x] (impl) Expose selected pure helpers to Node tests through a guarded export
+  or equivalent test-safe mechanism that does not affect browser execution.
+- [x] (test) Add `internal/dashboard/static/dashboard.test.js` using only
+  `node:test` and `node:assert/strict`.
+- [x] (test) Cover sparse host-memory fields, complete and incomplete disk
+  pairs, capability visibility reset between targets, current-disk formatting,
+  non-finite formatting inputs, and stale refresh responses.
+- [x] (test) Keep at most one small DOM integration test for applying capability
+  results to section visibility. Do not duplicate the full dashboard DOM.
+- [x] (impl) Replace the Go test's inline JavaScript harness and source-text
+  replacement with execution of the dedicated JavaScript test file.
+- [x] (impl) Allow `go test ./...` to skip the JavaScript test when Node is
+  unavailable locally, but configure CI to run the JavaScript tests explicitly
+  so they remain enforced.
+- [x] (verify) Run:
+  - `node --test internal/dashboard/static/dashboard.test.js`
+  - `go test ./...`
+- [x] (verify) Confirm production still serves the same deferred embedded asset
+  and requires no Node runtime.
+
+Done Criteria:
+
+- Dashboard unit tests execute the real `dashboard.js` file without regex-based
+  source rewriting.
+- Pure dashboard rules can be tested without constructing the full page.
+- The production binary and deployed dashboard have no Node or npm dependency.
+- CI fails when JavaScript unit tests fail.
+- Go-only local environments without Node can still run the Go test suite.
+
 ### Chunk 4.1 — Lock the host-metrics deployment boundary
 
 Status: [ ] Not started
 
 Preconditions:
 
-- Chunks 1.1 through 3.2 are complete.
+- Chunks 1.1 through 3.3 are complete.
 - Embedded host fields remain optional capabilities of `statlite-metrics/v1`;
   this chunk does not remove or reject them.
 
@@ -500,6 +560,8 @@ Done Criteria:
   multiple-disk collections.
 - [ ] Documentation/examples no longer recommend `/healthz` for dashboard
   self-monitoring.
+- [ ] Dashboard JavaScript tests run directly with Node's built-in test runner
+  and require no third-party JavaScript dependencies.
 
 ## Outcome
 

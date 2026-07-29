@@ -1,0 +1,146 @@
+const assert = require("node:assert/strict");
+const { afterEach, beforeEach, test } = require("node:test");
+
+const dashboard = require("./dashboard.js");
+
+beforeEach(resetDashboardState);
+afterEach(resetDashboardState);
+
+test("detectCapabilities keeps sparse memory but requires a valid disk pair", () => {
+  const sparseMemory = dashboard.detectCapabilities([{ host_memory_used_bytes: 10 }]);
+  assert.equal(sparseMemory.host, true);
+  assert.equal(sparseMemory.hostMemory, true);
+  assert.equal(sparseMemory.hostDisk, false);
+
+  assert.equal(dashboard.validDiskPoint({
+    host_disk_used_bytes: 10,
+    host_disk_total_bytes: 20,
+    host_disk_usage: 0.5
+  }), true);
+  assert.equal(dashboard.validDiskPoint({
+    host_disk_used_bytes: 10,
+    host_disk_total_bytes: 20
+  }), false);
+  assert.equal(dashboard.validDiskPoint({
+    host_disk_used_bytes: 30,
+    host_disk_total_bytes: 20,
+    host_disk_usage: 1.5
+  }), false);
+});
+
+test("capability detection resets for a target without metrics", () => {
+  assert.equal(dashboard.detectCapabilities([{ host_cpu_usage: 0.25 }]).host, true);
+  assert.deepEqual(dashboard.detectCapabilities([]), {
+    requests: false,
+    errors: false,
+    latency: false,
+    process: false,
+    hostCPU: false,
+    hostMemory: false,
+    hostDisk: false,
+    application: false,
+    host: false
+  });
+});
+
+test("formatters reject non-finite inputs and show the current disk observation", () => {
+  assert.equal(dashboard.formatValue(Infinity, "percent"), "Unknown");
+  assert.equal(dashboard.formatBytes(NaN), "Unknown");
+  assert.equal(dashboard.formatCurrentResource(null, "Disk"), "No data");
+  assert.equal(dashboard.formatCurrentResource({ used_bytes: 30, total_bytes: 60, usage: 0.5 }, "Disk"), "Disk — 30 B / 60 B · 50.0%");
+});
+
+test("renderSeries applies capability visibility with a minimal DOM stub", () => {
+  const elements = new Map();
+  const document = {
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, { hidden: false, textContent: "" });
+      return elements.get(id);
+    }
+  };
+  const originalDocument = global.document;
+  global.document = document;
+  dashboard.state.charts = chartStubs();
+
+  try {
+    dashboard.renderSeries({ points: [{ host_memory_used_bytes: 10 }] });
+    assert.equal(document.getElementById("host-section").hidden, false);
+    assert.equal(document.getElementById("host-memory-chart-card").hidden, false);
+    assert.equal(document.getElementById("host-disk-chart-card").hidden, true);
+
+    dashboard.renderSeries({ points: [] });
+    assert.equal(document.getElementById("host-section").hidden, true);
+  } finally {
+    global.document = originalDocument;
+  }
+});
+
+test("stale refresh responses cannot replace the current target", async () => {
+  const originalDocument = global.document;
+  const originalFetch = global.fetch;
+  const originalAbortController = global.AbortController;
+  const originalWindow = global.window;
+  const pending = [];
+  global.document = dashboardDocument();
+  global.window = { location: { search: "", pathname: "/" }, history: { replaceState() {} } };
+  global.fetch = (path, options) => new Promise((resolve) => pending.push({ path, resolve, signal: options.signal }));
+  global.AbortController = class {
+    constructor() { this.signal = { aborted: false }; }
+    abort() { this.signal.aborted = true; }
+  };
+  dashboard.state.charts = chartStubs();
+  dashboard.state.target = "alpha";
+  dashboard.state.range = "1h";
+  dashboard.state.refreshID = 0;
+  dashboard.state.refreshController = null;
+
+  try {
+    const first = dashboard.refresh();
+    dashboard.state.target = "beta";
+    dashboard.state.range = "7d";
+    const second = dashboard.refresh();
+    assert.equal(pending[0].signal.aborted, true);
+    assert.match(pending[0].path, /target=alpha&range=1h/);
+    assert.match(pending[3].path, /target=beta&range=7d/);
+    resolveRefresh(pending.splice(3, 3), "beta");
+    await second;
+    resolveRefresh(pending.splice(0, 3), "alpha");
+    await first;
+    assert.equal(dashboard.state.target, "beta");
+  } finally {
+    global.document = originalDocument;
+    global.fetch = originalFetch;
+    global.AbortController = originalAbortController;
+    global.window = originalWindow;
+  }
+});
+
+function chartStubs() {
+  const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
+  return { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
+}
+
+function dashboardDocument() {
+  const elements = new Map();
+  return {
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, { hidden: false, textContent: "", innerHTML: "", className: "", title: "", classList: { toggle() {} }, setAttribute() {} });
+      return elements.get(id);
+    },
+    createElement() { return { children: [], appendChild() {}, classList: { toggle() {} }, setAttribute() {} }; }
+  };
+}
+
+function resolveRefresh(requests, target) {
+  const summary = { selected_target: { name: target }, targets: [], monitor: {}, latest: {} };
+  const values = [summary, { points: [] }, []];
+  requests.forEach((request, index) => request.resolve({ ok: true, json: () => Promise.resolve(values[index]) }));
+}
+
+function resetDashboardState() {
+  dashboard.state.range = "1h";
+  dashboard.state.target = "";
+  dashboard.state.charts = {};
+  dashboard.state.refreshID = 0;
+  dashboard.state.refreshController = null;
+}

@@ -29,42 +29,44 @@ const lineStyle = {
   pointHitRadius: 8
 };
 
-document.querySelectorAll("[data-range]").forEach((button) => {
-  button.addEventListener("click", () => {
-    state.range = button.dataset.range;
-    document.querySelectorAll("[data-range]").forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
+function attachInteractions() {
+  document.querySelectorAll("[data-range]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.range = button.dataset.range;
+      document.querySelectorAll("[data-range]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      updateURL();
+      refresh();
+    });
+  });
+
+  document.getElementById("target-select").addEventListener("change", (event) => {
+    state.target = event.target.value;
     updateURL();
     refresh();
   });
-});
 
-document.getElementById("target-select").addEventListener("change", (event) => {
-  state.target = event.target.value;
-  updateURL();
-  refresh();
-});
-
-document.querySelectorAll(".help").forEach((button) => {
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const open = button.classList.toggle("open");
-    button.setAttribute("aria-expanded", String(open));
-    document.querySelectorAll(".help.open").forEach((item) => {
-      if (item !== button) closeHelp(item);
+  document.querySelectorAll(".help").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const open = button.classList.toggle("open");
+      button.setAttribute("aria-expanded", String(open));
+      document.querySelectorAll(".help.open").forEach((item) => {
+        if (item !== button) closeHelp(item);
+      });
     });
   });
-});
 
-document.addEventListener("click", () => {
-  document.querySelectorAll(".help.open").forEach(closeHelp);
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
+  document.addEventListener("click", () => {
     document.querySelectorAll(".help.open").forEach(closeHelp);
-  }
-});
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      document.querySelectorAll(".help.open").forEach(closeHelp);
+    }
+  });
+}
 
 function closeHelp(button) {
   button.classList.remove("open");
@@ -308,26 +310,31 @@ function renderSeries(series) {
     points.map((point) => point.host_disk_usage == null ? null : point.host_disk_usage * 100)
   ]);
 
-  const hasRequests = points.some((point) => point.requests != null);
-  const hasErrors = points.some((point) => point.http_404 != null || point.http_4xx != null || point.http_5xx != null);
-  const hasLatency = points.some((point) => point.average_latency_seconds != null);
-  const hasProcess = points.some((point) => point.heap_used_bytes != null || point.process_cpu_usage != null);
-  const hasHostCPU = points.some((point) => point.host_cpu_usage != null);
-  const hasHostMemory = points.some((point) => point.host_memory_used_bytes != null || point.host_memory_total_bytes != null);
-  const hasDisk = points.some(validDiskPoint);
-  setSectionVisible("application-section", hasRequests || hasErrors || hasLatency);
-  setSectionVisible("process-section", hasProcess);
-  setSectionVisible("host-section", hasHostCPU || hasHostMemory || hasDisk);
-  setSectionVisible("host-cpu-chart-card", hasHostCPU);
-  setSectionVisible("host-memory-chart-card", hasHostMemory);
-  setSectionVisible("host-disk-chart-card", hasDisk);
-  setNote("requests-note", hasRequests);
-  setNote("errors-note", hasErrors);
-  setNote("latency-note", hasLatency);
-  setNote("runtime-note", hasProcess);
-  setNote("host-cpu-note", hasHostCPU);
-  setNote("host-memory-note", hasHostMemory);
+  const capabilities = detectCapabilities(points);
+  setSectionVisible("application-section", capabilities.application);
+  setSectionVisible("process-section", capabilities.process);
+  setSectionVisible("host-section", capabilities.host);
+  setSectionVisible("host-cpu-chart-card", capabilities.hostCPU);
+  setSectionVisible("host-memory-chart-card", capabilities.hostMemory);
+  setSectionVisible("host-disk-chart-card", capabilities.hostDisk);
+  setNote("requests-note", capabilities.requests);
+  setNote("errors-note", capabilities.errors);
+  setNote("latency-note", capabilities.latency);
+  setNote("runtime-note", capabilities.process);
+  setNote("host-cpu-note", capabilities.hostCPU);
+  setNote("host-memory-note", capabilities.hostMemory);
   setCurrentResourceNote("host-disk-note", series.current_host_disk, "Disk");
+}
+
+function detectCapabilities(points) {
+  const requests = points.some((point) => point.requests != null);
+  const errors = points.some((point) => point.http_404 != null || point.http_4xx != null || point.http_5xx != null);
+  const latency = points.some((point) => point.average_latency_seconds != null);
+  const process = points.some((point) => point.heap_used_bytes != null || point.process_cpu_usage != null);
+  const hostCPU = points.some((point) => point.host_cpu_usage != null);
+  const hostMemory = points.some((point) => point.host_memory_used_bytes != null || point.host_memory_total_bytes != null);
+  const hostDisk = points.some(validDiskPoint);
+  return { requests, errors, latency, process, hostCPU, hostMemory, hostDisk, application: requests || errors || latency, host: hostCPU || hostMemory || hostDisk };
 }
 
 function setSectionVisible(id, visible) {
@@ -335,16 +342,22 @@ function setSectionVisible(id, visible) {
 }
 
 function validDiskPoint(point) {
-  return point.host_disk_usage != null && point.host_disk_used_bytes != null && point.host_disk_total_bytes != null;
+  return Number.isFinite(point.host_disk_usage) &&
+    Number.isFinite(point.host_disk_used_bytes) &&
+    Number.isFinite(point.host_disk_total_bytes) &&
+    point.host_disk_usage >= 0 && point.host_disk_usage <= 1 &&
+    point.host_disk_used_bytes >= 0 && point.host_disk_total_bytes > 0 &&
+    point.host_disk_used_bytes <= point.host_disk_total_bytes;
 }
 
 function setCurrentResourceNote(id, point, label) {
   const note = document.getElementById(id);
-  if (!point) {
-    note.textContent = "No data";
-    return;
-  }
-  note.textContent = label + " — " + formatBytes(point.used_bytes) + " / " + formatBytes(point.total_bytes) + " · " + formatValue(point.usage * 100, "percent");
+  note.textContent = formatCurrentResource(point, label);
+}
+
+function formatCurrentResource(point, label) {
+  if (!point) return "No data";
+  return label + " — " + formatBytes(point.used_bytes) + " / " + formatBytes(point.total_bytes) + " · " + formatValue(point.usage * 100, "percent");
 }
 
 function bytesToGB(value) {
@@ -467,7 +480,7 @@ function formatTick(value) {
 }
 
 function formatValue(value, unit) {
-  if (value == null || Number.isNaN(value)) return "Unknown";
+  if (value == null || !Number.isFinite(value)) return "Unknown";
   if (unit === "seconds") return value.toFixed(3) + " s";
   if (unit === "percent") return value.toFixed(1) + "%";
   if (unit === "mb") return value.toFixed(1) + " MB";
@@ -477,7 +490,7 @@ function formatValue(value, unit) {
 }
 
 function formatBytes(value) {
-  if (value == null || Number.isNaN(value)) return "Unknown";
+  if (value == null || !Number.isFinite(value)) return "Unknown";
   const units = ["B", "KB", "MB", "GB", "TB"];
   let size = value;
   let unit = 0;
@@ -500,12 +513,13 @@ function initializeFromURL() {
 }
 
 function initDashboard() {
+  attachInteractions();
   initializeFromURL();
   buildCharts();
   refresh();
   setInterval(refresh, 30000);
 }
 
-const dashboardTestHooks = { initDashboard, renderSeries, refresh, state };
-if (typeof globalThis !== "undefined") globalThis.statliteDashboardTestHooks = dashboardTestHooks;
-if (!globalThis.__STATLITE_DASHBOARD_NO_AUTO_INIT__) initDashboard();
+const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderSeries, state, validDiskPoint };
+if (typeof module !== "undefined" && module.exports) module.exports = dashboardTestHooks;
+if (typeof document !== "undefined") initDashboard();
