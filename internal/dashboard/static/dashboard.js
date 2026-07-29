@@ -13,7 +13,7 @@ const palette = {
   latency: "#2fd36b",
   heap: "#60a5fa",
   cpu: "#2fd36b",
-  total: "#a78bfa",
+  total: "#f59e0b",
   http404: "#f59e0b",
   http4xx: "#a78bfa",
   http5xx: "#ef4444",
@@ -101,12 +101,15 @@ function buildCharts() {
     ] },
     options: runtimeOptions()
   });
-  state.charts.hostCPU = new Chart(document.getElementById("host-cpu-chart"), {
+  state.charts.hostRuntime = new Chart(document.getElementById("host-runtime-chart"), {
     type: "line",
-    data: { labels: [], datasets: [{ label: "Host CPU", unit: "percent", data: [], borderColor: palette.cpu, ...lineStyle, tension: 0.25, spanGaps: false }] },
-    options: chartOptions()
+    data: { labels: [], datasets: [
+      { label: "RAM used", unit: "gb", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
+      { label: "RAM total", unit: "gb", data: [], borderColor: palette.total, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
+      { label: "Host CPU", unit: "percent", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
+    ] },
+    options: hostRuntimeOptions()
   });
-  state.charts.hostMemory = resourceChart("host-memory-chart", "RAM");
   state.charts.hostDisk = resourceChart("host-disk-chart", "Disk");
 }
 
@@ -147,6 +150,12 @@ function runtimeOptions() {
     y1: { beginAtZero: true, position: "right", title: { display: true, text: "cores", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
   };
   options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.unit);
+  return options;
+}
+
+function hostRuntimeOptions() {
+  const options = resourceOptions();
+  options.scales.y.title.text = "GB";
   return options;
 }
 
@@ -323,11 +332,10 @@ function renderSeries(series) {
     points.map((point) => point.heap_used_bytes == null ? null : point.heap_used_bytes / 1024 / 1024),
     points.map((point) => point.process_cpu_usage)
   ]);
-  updateChart(state.charts.hostCPU, labels, [points.map((point) => point.host_cpu_usage == null ? null : point.host_cpu_usage * 100)]);
-  updateChart(state.charts.hostMemory, labels, [
+  updateChart(state.charts.hostRuntime, labels, [
     points.map((point) => bytesToGB(point.host_memory_used_bytes)),
     points.map((point) => bytesToGB(point.host_memory_total_bytes)),
-    points.map((point) => point.host_memory_usage == null ? null : point.host_memory_usage * 100)
+    points.map((point) => point.host_cpu_usage == null ? null : point.host_cpu_usage * 100)
   ]);
   updateChart(state.charts.hostDisk, labels, [
     points.map((point) => bytesToGB(point.host_disk_used_bytes)),
@@ -339,15 +347,13 @@ function renderSeries(series) {
   setSectionVisible("application-section", capabilities.application);
   setSectionVisible("process-section", capabilities.process);
   setSectionVisible("host-section", capabilities.host);
-  setSectionVisible("host-cpu-chart-card", capabilities.hostCPU);
-  setSectionVisible("host-memory-chart-card", capabilities.hostMemory);
+  setSectionVisible("host-runtime-chart-card", capabilities.hostCPU || capabilities.hostMemory);
   setSectionVisible("host-disk-chart-card", capabilities.hostDisk);
   setNote("requests-note", capabilities.requests);
   setNote("errors-note", capabilities.errors);
   setNote("latency-note", capabilities.latency);
   setNote("runtime-note", capabilities.process);
-  setNote("host-cpu-note", capabilities.hostCPU);
-  setNote("host-memory-note", capabilities.hostMemory);
+  setNote("host-runtime-note", capabilities.hostCPU || capabilities.hostMemory);
   setCurrentResourceNote("host-disk-note", series.current_host_disk, "Disk");
 }
 

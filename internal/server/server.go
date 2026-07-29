@@ -18,30 +18,42 @@ type hostSampler interface {
 	Sample(filesystemPath string) (collector.HostMetrics, []error)
 }
 
+const resourceSnapshotInterval = 15 * time.Second
+
+type resourceSnapshot struct {
+	processHeap uint64
+	processCPU  float64
+	host        collector.HostMetrics
+}
+
 type Server struct {
-	httpServer       *http.Server
-	manager          *monitor.Manager
-	retentionDays    int
-	retentionCutoff  func() time.Time
-	startedAt        time.Time
-	requestsTotal    atomic.Uint64
-	notFoundTotal    atomic.Uint64
-	clientErrors     atomic.Uint64
-	serverErrors     atomic.Uint64
-	durationTotalNS  atomic.Uint64
-	durationMaxNS    atomic.Uint64
-	filesystemPath   string
-	hostSampler      hostSampler
-	storageHealthMu  sync.RWMutex
-	storageHealth    string
-	storageCancel    context.CancelFunc
-	storageHealthy   func(context.Context) bool
-	storageAvailable func() bool
-	storageInterval  time.Duration
-	cpuMu            sync.Mutex
-	lastCPUAt        time.Time
-	lastCPUSeconds   float64
-	lastCPUUsage     float64
+	httpServer        *http.Server
+	manager           *monitor.Manager
+	retentionDays     int
+	retentionCutoff   func() time.Time
+	startedAt         time.Time
+	requestsTotal     atomic.Uint64
+	notFoundTotal     atomic.Uint64
+	clientErrors      atomic.Uint64
+	serverErrors      atomic.Uint64
+	durationTotalNS   atomic.Uint64
+	durationMaxNS     atomic.Uint64
+	filesystemPath    string
+	hostSampler       hostSampler
+	resourceMu        sync.Mutex
+	resourceSnapshot  resourceSnapshot
+	resourceSampledAt time.Time
+	resourceInterval  time.Duration
+	storageHealthMu   sync.RWMutex
+	storageHealth     string
+	storageCancel     context.CancelFunc
+	storageHealthy    func(context.Context) bool
+	storageAvailable  func() bool
+	storageInterval   time.Duration
+	cpuMu             sync.Mutex
+	lastCPUAt         time.Time
+	lastCPUSeconds    float64
+	lastCPUUsage      float64
 }
 
 func New(listen string, mon *monitor.Monitor) *Server {
@@ -76,14 +88,15 @@ func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.
 		}
 	}
 	s := &Server{
-		manager:         manager,
-		retentionDays:   retentionDays,
-		retentionCutoff: retentionCutoff,
-		startedAt:       time.Now().UTC(),
-		filesystemPath:  filesystemPath,
-		hostSampler:     collector.NewHostSampler(),
-		storageHealth:   initialStorageHealth(manager),
-		storageInterval: storageHealthCheckInterval,
+		manager:          manager,
+		retentionDays:    retentionDays,
+		retentionCutoff:  retentionCutoff,
+		startedAt:        time.Now().UTC(),
+		filesystemPath:   filesystemPath,
+		hostSampler:      collector.NewHostSampler(),
+		resourceInterval: resourceSnapshotInterval,
+		storageHealth:    initialStorageHealth(manager),
+		storageInterval:  storageHealthCheckInterval,
 	}
 	if manager != nil {
 		storageMonitor := manager.PrimaryMonitor()

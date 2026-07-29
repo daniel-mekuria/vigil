@@ -56,8 +56,8 @@ func TestRootServesDashboardPage(t *testing.T) {
 		"Process",
 		`id="host-section"`,
 		"Host resources",
-		`id="host-cpu-chart"`,
-		`id="host-memory-chart"`,
+		"Host runtime",
+		`id="host-runtime-chart"`,
 		`id="host-disk-chart"`,
 		"Recent events",
 	} {
@@ -183,10 +183,12 @@ type recordingHostSampler struct {
 	metrics  collector.HostMetrics
 	warnings []error
 	path     string
+	calls    int
 }
 
 func (s *recordingHostSampler) Sample(path string) (collector.HostMetrics, []error) {
 	s.path = path
+	s.calls++
 	return s.metrics, s.warnings
 }
 
@@ -248,6 +250,20 @@ func TestStatliteMetricsEmitsCanonicalProfileAndExcludesScrape(t *testing.T) {
 	if secondResponse.Metrics.RequestsTotal != response.Metrics.RequestsTotal {
 		t.Fatalf("metrics scrape changed requests_total from %d to %d", response.Metrics.RequestsTotal, secondResponse.Metrics.RequestsTotal)
 	}
+	if sampler.calls != 1 {
+		t.Fatalf("host sampler calls = %d, want one cached resource sample", sampler.calls)
+	}
+	if secondResponse.Metrics.RuntimeHeapUsedBytes != response.Metrics.RuntimeHeapUsedBytes ||
+		secondResponse.Metrics.ProcessCPUUsage != response.Metrics.ProcessCPUUsage {
+		t.Fatalf("process resources changed within cache interval: first %#v second %#v", response.Metrics, secondResponse.Metrics)
+	}
+
+	statlite.resourceSampledAt = time.Now().Add(-statlite.resourceInterval)
+	third := httptest.NewRecorder()
+	statlite.httpServer.Handler.ServeHTTP(third, httptest.NewRequest(http.MethodGet, "/statlite/metrics", nil))
+	if sampler.calls != 2 {
+		t.Fatalf("host sampler calls after cache expiry = %d, want 2", sampler.calls)
+	}
 }
 
 func TestStatliteMetricsOmitsUnavailableDisk(t *testing.T) {
@@ -276,6 +292,78 @@ func TestStatliteMetricsOmitsUnavailableDisk(t *testing.T) {
 	}
 	if metrics["host_memory_used_bytes"] != memoryUsed {
 		t.Fatalf("memory used = %v, want %v", metrics["host_memory_used_bytes"], memoryUsed)
+	}
+}
+
+func TestResourceSnapshotCoalescesConcurrentRefreshesAndWarnings(t *testing.T) {
+	sampler := &recordingHostSampler{
+		warnings: []error{fmt.Errorf("sampling failed")},
+	}
+	statlite := New("127.0.0.1:0", nil)
+	statlite.hostSampler = sampler
+	now := time.Now().UTC()
+
+	const callers = 20
+	warningCounts := make(chan int, callers)
+	var wait sync.WaitGroup
+	for range callers {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, warnings := statlite.resources(now)
+			warningCounts <- len(warnings)
+		}()
+	}
+	wait.Wait()
+	close(warningCounts)
+
+	totalWarnings := 0
+	for count := range warningCounts {
+		totalWarnings += count
+	}
+	if sampler.calls != 1 {
+		t.Fatalf("host sampler calls = %d, want 1", sampler.calls)
+	}
+	if totalWarnings != 1 {
+		t.Fatalf("warnings returned across cached reads = %d, want 1", totalWarnings)
+	}
+}
+
+func TestResourceSnapshotRefreshReplacesSuccessfulHostDataOnFailure(t *testing.T) {
+	memoryUsed := 100.0
+	sampler := &recordingHostSampler{
+		metrics: collector.HostMetrics{MemoryUsedBytes: &memoryUsed},
+	}
+	statlite := New("127.0.0.1:0", nil)
+	statlite.hostSampler = sampler
+	now := time.Now()
+
+	first, warnings := statlite.resources(now)
+	if len(warnings) != 0 || first.host.MemoryUsedBytes == nil {
+		t.Fatalf("first resources() = %#v, %v; want successful host memory", first, warnings)
+	}
+
+	sampler.metrics = collector.HostMetrics{}
+	sampler.warnings = []error{fmt.Errorf("host memory unavailable")}
+	second, warnings := statlite.resources(now.Add(statlite.resourceInterval))
+	if len(warnings) != 1 {
+		t.Fatalf("refreshed warnings = %v, want one warning", warnings)
+	}
+	if second.host.MemoryUsedBytes != nil {
+		t.Fatalf("refreshed host memory = %v, want unavailable data to replace cached success", *second.host.MemoryUsedBytes)
+	}
+}
+
+func TestResourceSnapshotRefreshesAfterClockMovesBackward(t *testing.T) {
+	sampler := &recordingHostSampler{}
+	statlite := New("127.0.0.1:0", nil)
+	statlite.hostSampler = sampler
+	now := time.Now()
+
+	statlite.resources(now)
+	statlite.resources(now.Add(-time.Second))
+	if sampler.calls != 2 {
+		t.Fatalf("host sampler calls after backward clock adjustment = %d, want 2", sampler.calls)
 	}
 }
 

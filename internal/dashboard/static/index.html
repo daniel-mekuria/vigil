@@ -482,13 +482,9 @@ pre {
   <section id="host-section" class="capability-section" aria-labelledby="host-heading">
     <h2 id="host-heading">Host resources</h2>
     <div class="chart-grid">
-      <div id="host-cpu-chart-card" class="chart">
-        <div class="chart-head"><h2>Host CPU</h2><div id="host-cpu-note" class="note"></div></div>
-        <div class="canvas-wrap"><canvas id="host-cpu-chart"></canvas></div>
-      </div>
-      <div id="host-memory-chart-card" class="chart">
-        <div class="chart-head"><h2>RAM</h2><div id="host-memory-note" class="note"></div></div>
-        <div class="canvas-wrap"><canvas id="host-memory-chart"></canvas></div>
+      <div id="host-runtime-chart-card" class="chart">
+        <div class="chart-head"><h2 class="label-help">Host runtime <button type="button" class="help" aria-label="Host runtime help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Current and total host RAM, with CPU usage across the capacity visible to StatLite.</span></h2><div id="host-runtime-note" class="note"></div></div>
+        <div class="canvas-wrap"><canvas id="host-runtime-chart"></canvas></div>
       </div>
       <div id="host-disk-chart-card" class="chart">
         <div class="chart-head"><h2>Disk</h2><div id="host-disk-note" class="note"></div></div>

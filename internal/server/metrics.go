@@ -36,10 +36,9 @@ type statliteMetricsValues struct {
 }
 
 func (s *Server) handleStatliteMetrics(w http.ResponseWriter, _ *http.Request) {
-	now := time.Now().UTC()
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
-	host, warnings := s.hostSampler.Sample(s.filesystemPath)
+	sampledAt := time.Now()
+	now := sampledAt.UTC()
+	resources, warnings := s.resources(sampledAt)
 	for _, warning := range warnings {
 		log.Printf("StatLite metrics warning: %v", warning)
 	}
@@ -56,20 +55,43 @@ func (s *Server) handleStatliteMetrics(w http.ResponseWriter, _ *http.Request) {
 			Responses5xxTotal:           s.serverErrors.Load(),
 			RequestDurationSecondsTotal: time.Duration(s.durationTotalNS.Load()).Seconds(),
 			RequestDurationSecondsMax:   time.Duration(s.durationMaxNS.Load()).Seconds(),
-			ProcessCPUUsage:             s.processCPUUsage(now),
-			RuntimeHeapUsedBytes:        mem.Alloc,
+			ProcessCPUUsage:             resources.processCPU,
+			RuntimeHeapUsedBytes:        resources.processHeap,
 			UptimeSeconds:               now.Sub(s.startedAt).Seconds(),
-			HostCPUUsage:                host.CPUUsage,
-			HostMemoryUsedBytes:         host.MemoryUsedBytes,
-			HostMemoryTotalBytes:        host.MemoryTotalBytes,
-			HostDiskUsedBytes:           host.DiskUsedBytes,
-			HostDiskTotalBytes:          host.DiskTotalBytes,
+			HostCPUUsage:                resources.host.CPUUsage,
+			HostMemoryUsedBytes:         resources.host.MemoryUsedBytes,
+			HostMemoryTotalBytes:        resources.host.MemoryTotalBytes,
+			HostDiskUsedBytes:           resources.host.DiskUsedBytes,
+			HostDiskTotalBytes:          resources.host.DiskTotalBytes,
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("encode StatLite metrics response: %v", err)
 	}
+}
+
+func (s *Server) resources(now time.Time) (resourceSnapshot, []error) {
+	s.resourceMu.Lock()
+	defer s.resourceMu.Unlock()
+
+	if !s.resourceSampledAt.IsZero() {
+		age := now.Sub(s.resourceSampledAt)
+		if age >= 0 && age < s.resourceInterval {
+			return s.resourceSnapshot, nil
+		}
+	}
+
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	host, warnings := s.hostSampler.Sample(s.filesystemPath)
+	s.resourceSnapshot = resourceSnapshot{
+		processHeap: mem.Alloc,
+		processCPU:  s.processCPUUsage(now),
+		host:        host,
+	}
+	s.resourceSampledAt = now
+	return s.resourceSnapshot, warnings
 }
 
 func (s *Server) databaseStatus() *string {

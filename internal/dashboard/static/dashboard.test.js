@@ -106,7 +106,7 @@ test("renderSeries applies capability visibility with a minimal DOM stub", () =>
   try {
     dashboard.renderSeries({ points: [{ host_memory_used_bytes: 10 }] });
     assert.equal(document.getElementById("host-section").hidden, false);
-    assert.equal(document.getElementById("host-memory-chart-card").hidden, false);
+    assert.equal(document.getElementById("host-runtime-chart-card").hidden, false);
     assert.equal(document.getElementById("host-disk-chart-card").hidden, true);
 
     dashboard.renderSeries({ points: [] });
@@ -158,7 +158,7 @@ test("stale refresh responses cannot replace the current target", async () => {
 
 function chartStubs() {
   const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
-  return { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostCPU: chart(1), hostMemory: chart(3), hostDisk: chart(3) };
+  return { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostRuntime: chart(3), hostDisk: chart(3) };
 }
 
 function dashboardDocument() {

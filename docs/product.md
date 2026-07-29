@@ -17,7 +17,7 @@ focused production-support tool, not a general observability platform.
 StatLite prioritizes:
 
 * a small, understandable product;
-* a lightweight runtime footprint;
+* low steady-state memory and CPU usage;
 * explicit, maintainable implementation over framework-heavy abstraction;
 * local SQLite storage;
 * fixed supported collectors rather than arbitrary metrics;
@@ -28,6 +28,11 @@ StatLite prioritizes:
 
 The product is one small binary with simple YAML configuration, local history,
 fixed integration boundaries, and a local-first dashboard.
+
+StatLite must remain inexpensive enough to run on the small applications and
+servers it monitors. New dependencies, background work, and sampling behavior
+should be evaluated for their memory and CPU cost; monitoring should not
+materially change the workload being observed.
 
 ## Supported integration boundaries
 
