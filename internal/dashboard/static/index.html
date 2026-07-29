@@ -169,7 +169,7 @@ main {
 }
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(132px, 1fr));
+  grid-template-columns: repeat(7, minmax(132px, 1fr));
   gap: 10px;
   margin-bottom: 18px;
   min-width: 0;
@@ -184,12 +184,20 @@ main {
   min-height: 64px;
   padding: 10px 12px;
 }
+.metric.poll-status {
+  min-height: 72px;
+}
 .label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+.label-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .help {
   display: inline-flex;
@@ -255,6 +263,18 @@ main {
   font-weight: 600;
   line-height: 1.35;
 }
+.poll-status-state.ok { color: var(--pvr-green); }
+.poll-status-state.bad { color: var(--red); }
+.poll-status-error {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.poll-status-error[hidden] { display: none; }
 .pill {
   display: inline-flex;
   align-items: center;
@@ -432,10 +452,9 @@ pre {
     <div class="metric"><div class="label label-help">DB <button type="button" class="help" aria-label="DB health help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Health reported by the target for its database dependency.</span></div><div id="db-health" class="value"><span class="pill">...</span></div></div>
     <div class="metric"><div class="label">Started</div><div id="process-start" class="value small">...</div></div>
     <div class="metric"><div class="label label-help">Restart <button type="button" class="help" aria-label="Restart detection help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Detected from process start time or counter resets; detection can lag by one poll.</span></div><div id="restart-detected" class="value small">...</div></div>
-    <div class="metric"><div class="label">Success</div><div id="last-success" class="value small">...</div></div>
-    <div class="metric"><div class="label">Failure</div><div id="last-failure" class="value small">...</div></div>
-    <div class="metric"><div class="label">Failures</div><div id="failures" class="value">0</div></div>
-    <div class="metric"><div class="label">Polled</div><div id="last-poll" class="value small">...</div></div>
+    <div class="metric"><div class="label">Last poll success</div><div id="last-success" class="value small">...</div></div>
+    <div class="metric"><div class="label">Poll failures</div><div id="failures" class="value">0</div></div>
+    <div class="metric poll-status"><div class="label">Last poll</div><div id="last-poll" class="value small"><span id="poll-status-state" class="poll-status-state">...</span><span id="poll-status-time"></span></div><div id="poll-error" class="poll-status-error" hidden></div></div>
   </section>
 
   <section id="application-section" class="capability-section" aria-labelledby="application-heading">

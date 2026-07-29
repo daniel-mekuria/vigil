@@ -224,9 +224,34 @@ function renderSummary(summary) {
   setText("process-start", formatDateTime(result.process_start_time));
   renderRestart(summary);
   setText("last-success", formatDateTime(monitor.last_successful_poll_at));
-  setText("last-failure", monitor.last_failed_poll_at ? formatDateTime(monitor.last_failed_poll_at) : "None");
   setText("failures", String(monitor.consecutive_poll_failures || 0));
-  setText("last-poll", formatDateTime(monitor.last_poll_at));
+  renderPollStatus(monitor);
+}
+
+function renderPollStatus(monitor) {
+  const status = document.getElementById("poll-status-state");
+  const time = document.getElementById("poll-status-time");
+  const error = document.getElementById("poll-error");
+  const failed = (monitor.consecutive_poll_failures || 0) > 0;
+  const when = formatDateTime(monitor.last_poll_at);
+
+  if (failed) {
+    status.textContent = "Failed";
+    status.className = "poll-status-state bad";
+    time.textContent = " · " + when;
+    const summary = monitor.last_poll_error_summary || "Poll failed";
+    error.textContent = summary;
+    error.title = summary;
+    error.hidden = false;
+    return;
+  }
+
+  status.textContent = monitor.last_poll_at ? "Successful" : "Not yet polled";
+  status.className = "poll-status-state ok";
+  time.textContent = monitor.last_poll_at ? " · " + when : "";
+  error.textContent = "";
+  error.title = "";
+  error.hidden = true;
 }
 
 function renderRestart(summary) {
@@ -518,6 +543,6 @@ function initDashboard() {
   setInterval(refresh, 30000);
 }
 
-const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderSeries, state, validDiskPoint };
+const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderPollStatus, renderSeries, state, validDiskPoint };
 if (typeof module !== "undefined" && module.exports) module.exports = dashboardTestHooks;
 if (typeof document !== "undefined") initDashboard();

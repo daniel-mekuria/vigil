@@ -61,6 +61,36 @@ test("formatters reject non-finite inputs and show the current disk observation"
   assert.equal(dashboard.formatCurrentResource({ used_bytes: 30, total_bytes: 60, usage: 0.5 }, "Disk"), "Disk — 30 B / 60 B · 50.0%");
 });
 
+test("renderPollStatus shows the latest poll state and a failed-poll summary", () => {
+  const originalDocument = global.document;
+  const document = dashboardDocument();
+  global.document = document;
+
+  try {
+    dashboard.renderPollStatus({
+      last_poll_at: "2026-07-29T17:42:00Z",
+      consecutive_poll_failures: 1,
+      last_poll_error_summary: "fetching statlite metrics: connection refused"
+    });
+    const failed = document.getElementById("poll-status-state");
+    const failedTime = document.getElementById("poll-status-time");
+    const error = document.getElementById("poll-error");
+    assert.equal(failed.textContent, "Failed");
+    assert.match(failed.className, /bad/);
+    assert.match(failedTime.textContent, /^ · /);
+    assert.equal(error.textContent, "fetching statlite metrics: connection refused");
+    assert.equal(error.hidden, false);
+    assert.equal(error.title, error.textContent);
+
+    dashboard.renderPollStatus({ last_poll_at: "2026-07-29T17:45:00Z" });
+    assert.equal(failed.textContent, "Successful");
+    assert.match(failed.className, /ok/);
+    assert.equal(error.hidden, true);
+  } finally {
+    global.document = originalDocument;
+  }
+});
+
 test("renderSeries applies capability visibility with a minimal DOM stub", () => {
   const elements = new Map();
   const document = {
