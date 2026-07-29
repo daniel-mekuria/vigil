@@ -12,7 +12,7 @@ import (
 )
 
 func TestEntrypointRejectsRetiredTargetTypesClearly(t *testing.T) {
-	for _, retiredType := range []string{"statlite-health", "statlite", "host"} {
+	for _, retiredType := range []string{"statlite-health", "host"} {
 		t.Run(retiredType, func(t *testing.T) {
 			configPath := filepath.Join(t.TempDir(), "statlite.yaml")
 			config := `server:

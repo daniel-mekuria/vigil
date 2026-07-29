@@ -360,7 +360,7 @@ targets:
 }
 
 func TestLoadRejectsRetiredTargetTypes(t *testing.T) {
-	for _, targetType := range []string{"statlite-health", "statlite", "host"} {
+	for _, targetType := range []string{"statlite-health", "host"} {
 		t.Run(targetType, func(t *testing.T) {
 			path := writeConfig(t, `
 server:

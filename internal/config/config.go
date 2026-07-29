@@ -18,10 +18,11 @@ const (
 )
 
 type Config struct {
-	Server  ServerConfig   `yaml:"server"`
-	Storage StorageConfig  `yaml:"storage"`
-	Polling PollingConfig  `yaml:"polling"`
-	Targets []TargetConfig `yaml:"targets"`
+	Server              ServerConfig   `yaml:"server"`
+	Storage             StorageConfig  `yaml:"storage"`
+	Polling             PollingConfig  `yaml:"polling"`
+	Targets             []TargetConfig `yaml:"targets"`
+	deprecationWarnings []string
 }
 
 type ServerConfig struct {
@@ -70,6 +71,7 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
+	cfg.upgradeDeprecatedTargets()
 
 	if err := cfg.validate(); err != nil {
 		return nil, err

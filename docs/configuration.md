@@ -117,6 +117,11 @@ targets:
 same profile is also available to supported external application integrations;
 it is not a general metrics protocol.
 
+For compatibility, an older `type: "statlite"` target is migrated at startup
+to `type: "statlite-metrics"` and its URL path is changed to
+`/statlite/metrics`. StatLite logs a deprecation warning; update the
+configuration before a future release removes this migration.
+
 ### StatLite Metrics v1
 
 ```yaml

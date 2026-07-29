@@ -39,6 +39,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	for _, warning := range cfg.DeprecationWarnings() {
+		log.Printf("WARNING: %s", warning)
+	}
 
 	timeout, err := time.ParseDuration(cfg.Polling.Timeout)
 	if err != nil {
