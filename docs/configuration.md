@@ -126,13 +126,10 @@ targets:
     url: "http://127.0.0.1:8000/statlite/metrics"
 ```
 
-`statlite-metrics` performs one bounded JSON GET per poll and validates the
-fixed `statlite-metrics/v1` profile. The response requires `schema` equal to
-`statlite-metrics/v1` and a non-empty top-level `status`; optional health,
-traffic, latency, CPU, uptime, start-time, and runtime-memory fields are
-normalized when valid. Unknown fields are ignored, malformed optional values
-become warnings, and there is no runtime-neutral maximum-memory field. Basic
-Auth is not part of v1.
+Applications using `type: statlite-metrics` expose the fixed
+`statlite-metrics/v1` JSON profile. See [StatLite Metrics v1](statlite-metrics-v1.md)
+for the complete response format, field semantics, and implementation guidance.
+StatLite performs one bounded JSON GET per poll; Basic Auth is not part of v1.
 
 Root `statlite.yaml` uses this pattern so Quick Start works with no extra config. The first poll may fail until the HTTP server is listening; later polls should succeed.
 
