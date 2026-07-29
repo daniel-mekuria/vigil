@@ -8,10 +8,11 @@ Archived:
 ## Summary
 
 Extend the fixed `statlite-metrics/v1` profile from application/process-only
-metrics to application, process, and five optional host metrics. Make StatLite emit
-and collect that same profile for its own dashboard, retire the separate
-`statlite-health` dashboard protocol, and organize charts by the capabilities
-actually present in a target response.
+metrics to application, process, and five supported optional host metrics. Make
+StatLite emit and collect that same profile for its own dashboard, recommend a
+local `type: host` collector as the collocated machine-metrics source, retire
+the separate `statlite-health` dashboard protocol, and organize charts by the
+capabilities actually present in a target response.
 
 The repository currently has no `type: host` collector despite the proposal
 referring to it as experimental. This plan adds the narrowly scoped local host
@@ -51,12 +52,12 @@ The following issue requirements must remain true throughout implementation:
   Do not add filesystem paths, mount names, device labels, arrays, per-volume
   metrics, or a producer-supplied percentage to the profile.
 * StatLite self-monitoring selects the filesystem containing its SQLite
-  database. The FastAPI example defaults to the filesystem containing
-  `Path.cwd()`; applications with a dedicated data directory should select it
-  instead. In containers, disk values describe the filesystem visible inside
-  the container on a best-effort basis; do not promise perfect interpretation
-  of every cgroup configuration. Keep disk I/O counters and their
-  delta/reset/rate semantics out of this issue.
+  database. External producers may emit host fields when they deliberately
+  expose their visible execution environment, but application integrations
+  are not required to implement host sampling. In containers, disk values
+  describe the filesystem visible inside the container on a best-effort basis;
+  do not promise perfect interpretation of every cgroup configuration. Keep
+  disk I/O counters and their delta/reset/rate semantics out of this issue.
 * All profile metric fields remain optional. Keep valid samples if optional
   fields are absent or invalid, record descriptive collector warnings for
   invalid values, and store normalized samples through the existing common
@@ -157,14 +158,17 @@ turning missing optional metrics into zero.
 
 ### Phase 4 — Config, examples, documentation, and regression verification
 
-Goal: Publish one canonical profile and leave runnable examples/configuration
-consistent with the implementation.
+Goal: Publish one canonical profile, document the collocated deployment
+topology, and leave runnable examples/configuration consistent with the
+implementation.
 
 Boundaries: Keep `/healthz` documentation limited to operational readiness;
-do not broaden supported integrations.
+do not broaden supported integrations. Document deployment topology and the
+remote-host boundary without requiring framework-specific host collectors.
 
 Exit Criteria: Docs/examples contain no preferred healthz monitoring path,
-FastAPI emits the expanded profile, all example configs validate, and the full
+FastAPI emits a valid application/process profile, deployment guidance covers
+collocated and remote-host models, all example configs validate, and the full
 test suite passes.
 
 ## Execution
@@ -337,8 +341,9 @@ Checklist:
   percentage and raw `host_disk_used_bytes`/`host_disk_total_bytes`, including
   a current-value display such as `Disk — 18.4 GB / 40 GB · 46%`. Show Disk
   only for a valid used/total pair; never treat missing values as zero. A
-  `statlite-metrics` target may render all sections; `host` renders only Host
-  resources.
+  `statlite-metrics` target may render all sections when it provides the
+  optional host fields; `host` renders only Host resources. Do not imply that
+  every statlite-metrics producer must provide host fields.
 - [ ] (test) Extend server/API tests for serialized host/disk series and add
   lightweight static/dashboard assertions for section identifiers, chart data
   bindings, raw-byte display, conditional Disk visibility, derived percentage,
@@ -352,23 +357,60 @@ Done Criteria:
 - Host data embedded in an app response appears under that app's selected
   target and no extra target is created.
 
-### Chunk 4.1 — Update producers, guidance, and release-quality checks
+### Chunk 4.1 — Lock the host-metrics deployment boundary
 
 Status: [ ] Not started
 
 Preconditions:
 
 - Chunks 1.1 through 3.1 are complete.
+- Embedded host fields remain optional capabilities of `statlite-metrics/v1`;
+  this chunk does not remove or reject them.
+
+Checklist:
+
+- [ ] (design) Record the recommended collocated deployment model:
+  application targets provide application and process metrics; a local
+  `type: host` target provides machine CPU, memory, and disk metrics; and the
+  `statlite-self` target monitors StatLite through `/statlite/metrics`.
+- [ ] (design) Clarify that Spring Boot, Python, Go, and other application
+  integrations are not required to implement host sampling. Host fields
+  remain valid optional profile fields for producers that deliberately expose
+  the execution environment visible to them.
+- [ ] (design) Document the remote-host boundary: a central StatLite instance
+  cannot obtain host metrics for a remote application unless that application
+  emits optional host fields or another StatLite instance runs on that host.
+- [ ] (test) Keep collector and dashboard coverage for embedded host fields so
+  producers that choose to emit them remain supported.
+- [ ] (verify) Confirm the dashboard handles both supported models:
+  application target plus separate local host target; and application target
+  with optional embedded host fields.
+
+Done Criteria:
+
+- No application framework integration is required to duplicate StatLite's
+  local host sampler.
+- Collocated deployment guidance consistently recommends spring or
+  statlite-metrics for the application, host for the machine, and statlite-self
+  for StatLite.
+- Optional embedded host fields remain backward-compatible and
+  capability-based.
+- Remote-host limitations are explicit.
+
+### Chunk 4.2 — Update producers, guidance, and release-quality checks
+
+Status: [ ] Not started
+
+Preconditions:
+
+- Chunks 1.1 through 4.1 are complete.
 
 Checklist:
 
 - [ ] (impl) Update the FastAPI helper and README to emit
-  `process_cpu_usage`, runtime-managed memory, and best-effort host CPU/memory
-  plus disk capacity from `shutil.disk_usage(Path.cwd())`. Document that the
-  working-directory selection is an example default, not a protocol rule, and
-  production applications should select their important writable/persistent
-  data directory when appropriate. Retain scrape exclusion and omit values it
-  cannot safely determine.
+  `process_cpu_usage` and runtime-managed memory. Keep host fields optional;
+  the example does not need to implement host CPU, memory, or disk sampling.
+  Retain scrape exclusion and omit values it cannot safely determine.
 - [ ] (impl) Update `docs/statlite-metrics-v1.md`, `docs/product.md`,
   `docs/configuration.md`, and necessary README text to name the profile as
   canonical for StatLite and external integrations, describe `type: host` as
@@ -377,10 +419,9 @@ Checklist:
   remove claims that `/healthz` is a self-monitoring integration.
 - [ ] (test) Add/adjust FastAPI example checks if the repository's test setup
   can run them without new heavy tooling; otherwise perform the documented
-  curl response validation. Verify disk used/total values are emitted when
-  available, describe the same filesystem, and are omitted rather than making
-  the response invalid on failure; record the result in the chunk completion
-  note.
+  curl response validation. Verify the application/process-only response is
+  accepted by the normal StatLite Metrics collector and omitted host fields
+  produce no errors; record the result in the chunk completion note.
 - [ ] (verify) Run `go test ./...`, validate every bundled YAML example with
   existing config tests, run the FastAPI example response through the normal
   StatLite Metrics collector test fixture, and inspect the dashboard at narrow
@@ -415,8 +456,11 @@ Done Criteria:
 - [ ] Local `type: host` and embedded host metrics share normalized keys.
 - [ ] Local `type: host` and embedded disk metrics use identical normalized
   keys.
-- [ ] The FastAPI example defaults to the filesystem containing its working
-  directory.
+- [ ] Collocated deployment guidance recommends an application target plus a
+  local `type: host` target for machine resources.
+- [ ] Remote-host limitations are documented: central StatLite cannot infer a
+  remote application's host metrics without emitted optional fields or a
+  StatLite instance running on that host.
 - [ ] Disk is shown as a separate Host resources chart.
 - [ ] Missing or invalid disk metrics do not invalidate other profile metrics.
 - [ ] The profile exposes no filesystem paths, mount labels, devices, or
