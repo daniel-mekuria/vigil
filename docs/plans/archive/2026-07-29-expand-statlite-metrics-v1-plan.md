@@ -1,9 +1,9 @@
 # Expand StatLite Metrics v1 Plan
 
 Issue: #2
-Status: Active
+Status: Archived
 Created: 2026-07-29
-Archived:
+Archived: 2026-07-29
 
 ## Summary
 
@@ -548,14 +548,17 @@ Required before archive.
   renamed process CPU field and optional target-attached host capacity fields;
   StatLite emits and self-collects the profile at `/statlite/metrics`; the
   dashboard presents application, process, and host capabilities together on
-  their producing target. The FastAPI helper is application/process-only,
-  excludes its scrape from request accounting, and is covered by
-  standard-library tests plus the normal collector fixture.
+  their producing target. Lightweight host sampling supports Linux and macOS,
+  including Intel and Apple Silicon, and self-resource snapshots are cached to
+  bound sampling work under frequent or concurrent scrapes. The FastAPI helper
+  is application/process-only, excludes its scrape from request accounting,
+  and is covered by standard-library tests plus the normal collector fixture.
 - What changed from the original plan: The source-tree compatibility audit
   found no external adoption of `statlite-health`, `statlite`, or the retired
   local `host` target type, so those dashboard target contracts were removed
   rather than retained behind a migration path. Documentation now describes
-  `/healthz` solely as version and SQLite readiness.
+  `/healthz` solely as version and SQLite readiness. Host CPU and RAM were
+  combined into one Host runtime chart while disk remains separate.
 - What was intentionally skipped: External application integrations do not
   implement host sampling. Host values remain optional best-effort estimates;
   precise cgroup, filesystem, CPU-interval, and disk-I/O semantics remain
