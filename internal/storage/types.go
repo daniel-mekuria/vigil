@@ -34,6 +34,13 @@ type SeriesPoint struct {
 	AverageLatencySeconds *float64  `json:"average_latency_seconds"`
 	HeapUsedBytes         *float64  `json:"heap_used_bytes"`
 	ProcessCPUUsage       *float64  `json:"process_cpu_usage"`
+	HostCPUUsage          *float64  `json:"host_cpu_usage"`
+	HostMemoryUsedBytes   *float64  `json:"host_memory_used_bytes"`
+	HostMemoryTotalBytes  *float64  `json:"host_memory_total_bytes"`
+	HostMemoryUsage       *float64  `json:"host_memory_usage"`
+	HostDiskUsedBytes     *float64  `json:"host_disk_used_bytes"`
+	HostDiskTotalBytes    *float64  `json:"host_disk_total_bytes"`
+	HostDiskUsage         *float64  `json:"host_disk_usage"`
 }
 
 type Event struct {

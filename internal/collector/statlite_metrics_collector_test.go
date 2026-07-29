@@ -23,7 +23,12 @@ func TestStatliteMetricsCollectorMapsCompleteResponse(t *testing.T) {
 			"responses_5xx_total": 4,
 			"request_duration_seconds_total": 84.31,
 			"request_duration_seconds_max": 1.42,
-			"cpu_usage": 0.031,
+			"process_cpu_usage": 0.031,
+			"host_cpu_usage": 0.4,
+			"host_memory_used_bytes": 30,
+			"host_memory_total_bytes": 100,
+			"host_disk_used_bytes": 40,
+			"host_disk_total_bytes": 200,
 			"runtime_heap_used_bytes": 25165824,
 			"uptime_seconds": 1820
 		}
@@ -60,7 +65,12 @@ func TestStatliteMetricsCollectorMapsCompleteResponse(t *testing.T) {
 	assertSample(t, result, "http_5xx_total", MetricKindCounter, 4, "requests")
 	assertSample(t, result, "http_request_time_total_seconds", MetricKindCounter, 84.31, "seconds")
 	assertSample(t, result, "http_request_time_max_seconds", MetricKindGauge, 1.42, "seconds")
-	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 0.031, "ratio")
+	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 0.031, "cores")
+	assertSample(t, result, "host_cpu_usage", MetricKindGauge, 0.4, "ratio")
+	assertSample(t, result, "host_memory_used_bytes", MetricKindGauge, 30, "bytes")
+	assertSample(t, result, "host_memory_total_bytes", MetricKindGauge, 100, "bytes")
+	assertSample(t, result, "host_disk_used_bytes", MetricKindGauge, 40, "bytes")
+	assertSample(t, result, "host_disk_total_bytes", MetricKindGauge, 200, "bytes")
 	assertSample(t, result, "runtime_heap_used_bytes", MetricKindGauge, 25165824, "bytes")
 	assertSample(t, result, "process_uptime", MetricKindGauge, 1820, "seconds")
 	assertSample(t, result, "process_start_time", MetricKindGauge, 1785178800, "unix_seconds")
@@ -71,6 +81,11 @@ func TestStatliteMetricsCollectorMapsCompleteResponse(t *testing.T) {
 		"http_request_time_max_seconds",
 		"http_request_time_total_seconds",
 		"http_requests_total",
+		"host_cpu_usage",
+		"host_disk_total_bytes",
+		"host_disk_used_bytes",
+		"host_memory_total_bytes",
+		"host_memory_used_bytes",
 		"process_cpu_usage",
 		"process_start_time",
 		"process_uptime",
@@ -181,7 +196,7 @@ func TestStatliteMetricsCollectorKeepsValidSamplesWhenOptionalMetricsAreInvalid(
 			"responses_5xx_total": "invalid",
 			"request_duration_seconds_total": 1e999,
 			"request_duration_seconds_max": 1.42,
-			"cpu_usage": 1e999,
+			"process_cpu_usage": 1e999,
 			"runtime_heap_used_bytes": -5,
 			"uptime_seconds": 1820
 		}
@@ -225,7 +240,7 @@ func TestStatliteMetricsCollectorAllowsCPUAboveOneAnd404Subset(t *testing.T) {
 		"metrics": {
 			"responses_404_total": 18,
 			"responses_4xx_total": 31,
-			"cpu_usage": 2.75
+			"process_cpu_usage": 2.75
 		}
 	}`)
 	defer server.Close()
@@ -237,9 +252,58 @@ func TestStatliteMetricsCollectorAllowsCPUAboveOneAnd404Subset(t *testing.T) {
 	}
 	assertSample(t, result, "http_404_total", MetricKindCounter, 18, "requests")
 	assertSample(t, result, "http_4xx_total", MetricKindCounter, 31, "requests")
-	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 2.75, "ratio")
+	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 2.75, "cores")
 	if len(result.Events) != 0 {
 		t.Fatalf("Events = %#v, want none", result.Events)
+	}
+}
+
+func TestStatliteMetricsCollectorRejectsInvalidHostPairsWithoutDiscardingOtherSamples(t *testing.T) {
+	server := newStatliteMetricsServer(t, http.StatusOK, `{
+		"schema": "statlite-metrics/v1",
+		"status": "UP",
+		"started_at": "2026-07-27T19:00:00Z",
+		"metrics": {
+			"process_cpu_usage": 2.75,
+			"host_cpu_usage": 1.2,
+			"host_memory_used_bytes": 101,
+			"host_memory_total_bytes": 100,
+			"host_disk_used_bytes": 101,
+			"host_disk_total_bytes": 100,
+			"runtime_heap_used_bytes": 10
+		}
+	}`)
+	defer server.Close()
+
+	result, err := NewStatliteMetricsCollector("invalid-host", newTestStatliteMetricsClient(t, server.URL)).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 2.75, "cores")
+	assertSample(t, result, "runtime_heap_used_bytes", MetricKindGauge, 10, "bytes")
+	for _, key := range []string{"host_cpu_usage", "host_memory_used_bytes", "host_memory_total_bytes", "host_disk_used_bytes", "host_disk_total_bytes"} {
+		if hasSample(result, key) {
+			t.Errorf("Samples = %#v, want %s omitted", result.Samples, key)
+		}
+		if !hasCollectorEvent(result, "metric_invalid", key) {
+			t.Errorf("Events = %#v, want metric_invalid for %s", result.Events, key)
+		}
+	}
+}
+
+func TestStatliteMetricsCollectorRejectsNegativeHostCPU(t *testing.T) {
+	server := newStatliteMetricsServer(t, http.StatusOK, `{
+		"schema": "statlite-metrics/v1",
+		"status": "UP",
+		"metrics": {"host_cpu_usage": -0.01}
+	}`)
+	defer server.Close()
+	result, err := NewStatliteMetricsCollector("negative-host-cpu", newTestStatliteMetricsClient(t, server.URL)).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if hasSample(result, "host_cpu_usage") || !hasCollectorEvent(result, "metric_invalid", "host_cpu_usage") {
+		t.Fatalf("result = %#v, want rejected negative host CPU", result)
 	}
 }
 
@@ -276,6 +340,15 @@ func TestStatliteMetricsCollectorRejectsNilClient(t *testing.T) {
 func hasCollectorEvent(result *CollectionResult, eventType, metricKey string) bool {
 	for _, event := range result.Events {
 		if event.Type == eventType && event.MetricKey == metricKey {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSample(result *CollectionResult, key string) bool {
+	for _, sample := range result.Samples {
+		if sample.Key == key {
 			return true
 		}
 	}

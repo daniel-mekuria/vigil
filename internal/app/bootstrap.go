@@ -12,10 +12,10 @@ import (
 	"github.com/pvrlabs/statlite/internal/storage"
 )
 
-func NewMonitorManager(targets []config.TargetConfig, store *storage.Store, timeout, interval time.Duration) (*monitor.Manager, error) {
+func NewMonitorManager(targets []config.TargetConfig, store *storage.Store, sqlitePath string, timeout, interval time.Duration) (*monitor.Manager, error) {
 	managedTargets := make([]monitor.ManagedTarget, 0, len(targets))
 	for _, target := range targets {
-		targetCollector, err := newCollector(target, timeout)
+		targetCollector, err := newCollectorWithFilesystemPath(target, timeout, sqlitePath)
 		if err != nil {
 			return nil, fmt.Errorf("%s: collector: %w", target.Name, err)
 		}
@@ -38,6 +38,10 @@ func NewMonitorManager(targets []config.TargetConfig, store *storage.Store, time
 }
 
 func newCollector(target config.TargetConfig, timeout time.Duration) (monitor.Collector, error) {
+	return newCollectorWithFilesystemPath(target, timeout, "")
+}
+
+func newCollectorWithFilesystemPath(target config.TargetConfig, timeout time.Duration, filesystemPath string) (monitor.Collector, error) {
 	switch target.Type {
 	case "", config.TargetTypeSpring:
 		var auth *collector.BasicAuth
@@ -58,6 +62,8 @@ func newCollector(target config.TargetConfig, timeout time.Duration) (monitor.Co
 			return nil, fmt.Errorf("statlite metrics client: %w", err)
 		}
 		return collector.NewStatliteMetricsCollector(target.Name, client), nil
+	case config.TargetTypeHost:
+		return collector.NewHostCollector(target.Name, filesystemPath, nil), nil
 	case config.TargetTypeStatliteHealth, config.TargetTypeStatliteLegacy:
 		client, err := collector.NewStatliteHealthzClient(target.URL, timeout)
 		if err != nil {

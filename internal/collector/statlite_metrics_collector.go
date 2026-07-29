@@ -23,6 +23,7 @@ type statliteMetricsMapping struct {
 	kind           MetricKind
 	unit           string
 	rejectNegative bool
+	maxValue       *float64
 	field          StatliteMetricsField
 }
 
@@ -149,11 +150,11 @@ func collectStatliteMetricsSamples(result *CollectionResult, metrics *StatliteMe
 			field:         metrics.RequestDurationSecondsMax,
 		},
 		{
-			sourceKey:     "cpu_usage",
+			sourceKey:     "process_cpu_usage",
 			normalizedKey: "process_cpu_usage",
 			kind:          MetricKindGauge,
-			unit:          "ratio",
-			field:         metrics.CPUUsage,
+			unit:          "cores",
+			field:         metrics.ProcessCPUUsage,
 		},
 		{
 			sourceKey:      "runtime_heap_used_bytes",
@@ -170,34 +171,104 @@ func collectStatliteMetricsSamples(result *CollectionResult, metrics *StatliteMe
 			unit:          "seconds",
 			field:         metrics.UptimeSeconds,
 		},
+		{
+			sourceKey:      "host_cpu_usage",
+			normalizedKey:  "host_cpu_usage",
+			kind:           MetricKindGauge,
+			unit:           "ratio",
+			rejectNegative: true,
+			maxValue:       float64Pointer(1),
+			field:          metrics.HostCPUUsage,
+		},
+		{
+			sourceKey:      "host_memory_used_bytes",
+			normalizedKey:  "host_memory_used_bytes",
+			kind:           MetricKindGauge,
+			unit:           "bytes",
+			rejectNegative: true,
+			field:          metrics.HostMemoryUsedBytes,
+		},
+		{
+			sourceKey:      "host_memory_total_bytes",
+			normalizedKey:  "host_memory_total_bytes",
+			kind:           MetricKindGauge,
+			unit:           "bytes",
+			rejectNegative: true,
+			field:          metrics.HostMemoryTotalBytes,
+		},
+		{
+			sourceKey:      "host_disk_used_bytes",
+			normalizedKey:  "host_disk_used_bytes",
+			kind:           MetricKindGauge,
+			unit:           "bytes",
+			rejectNegative: true,
+			field:          metrics.HostDiskUsedBytes,
+		},
+		{
+			sourceKey:      "host_disk_total_bytes",
+			normalizedKey:  "host_disk_total_bytes",
+			kind:           MetricKindGauge,
+			unit:           "bytes",
+			rejectNegative: true,
+			field:          metrics.HostDiskTotalBytes,
+		},
 	}
 
+	samples := make(map[string]MetricSample, len(mappings))
 	for _, mapping := range mappings {
-		collectStatliteMetricsSample(result, mapping)
+		if sample := collectStatliteMetricsSample(result, mapping); sample != nil {
+			samples[mapping.normalizedKey] = *sample
+		}
+	}
+	validateStatliteMetricsPair(result, samples, "host_memory_used_bytes", "host_memory_total_bytes")
+	validateStatliteMetricsPair(result, samples, "host_disk_used_bytes", "host_disk_total_bytes")
+	for _, mapping := range mappings {
+		if sample, ok := samples[mapping.normalizedKey]; ok {
+			result.addSample(sample.Key, sample.Kind, sample.Value, sample.Unit)
+		}
 	}
 }
 
-func collectStatliteMetricsSample(result *CollectionResult, mapping statliteMetricsMapping) {
+func float64Pointer(value float64) *float64 { return &value }
+
+func collectStatliteMetricsSample(result *CollectionResult, mapping statliteMetricsMapping) *MetricSample {
 	if !mapping.field.present() {
-		return
+		return nil
 	}
 
 	var number json.Number
 	if err := json.Unmarshal(mapping.field.raw, &number); err != nil {
 		addStatliteMetricsValueInvalid(result, mapping, "must be a number")
-		return
+		return nil
 	}
 	value, err := strconv.ParseFloat(number.String(), 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
 		addStatliteMetricsValueInvalid(result, mapping, "must be a finite number")
-		return
+		return nil
 	}
 	if mapping.rejectNegative && value < 0 {
 		addStatliteMetricsValueInvalid(result, mapping, "must be non-negative")
-		return
+		return nil
+	}
+	if mapping.maxValue != nil && value > *mapping.maxValue {
+		addStatliteMetricsValueInvalid(result, mapping, fmt.Sprintf("must not exceed %g", *mapping.maxValue))
+		return nil
 	}
 
-	result.addSample(mapping.normalizedKey, mapping.kind, value, mapping.unit)
+	return &MetricSample{Key: mapping.normalizedKey, Kind: mapping.kind, Value: value, Unit: mapping.unit}
+}
+
+func validateStatliteMetricsPair(result *CollectionResult, samples map[string]MetricSample, usedKey, totalKey string) {
+	used, usedPresent := samples[usedKey]
+	total, totalPresent := samples[totalKey]
+	if !usedPresent || !totalPresent || used.Value <= total.Value {
+		return
+	}
+	delete(samples, usedKey)
+	delete(samples, totalKey)
+	for _, sample := range []MetricSample{used, total} {
+		result.addEvent(EventSeverityWarning, "metric_invalid", sample.Key, fmt.Sprintf("statlite metrics %s must not exceed %s", usedKey, totalKey))
+	}
 }
 
 func addStatliteMetricsValueInvalid(result *CollectionResult, mapping statliteMetricsMapping, reason string) {

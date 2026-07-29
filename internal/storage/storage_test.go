@@ -691,10 +691,13 @@ func saveSeriesPoll(t *testing.T, store *Store, appRunID int64, startedAt time.T
 		switch key {
 		case "http_request_time_total_seconds":
 			unit = "seconds"
-		case "runtime_heap_used_bytes", "jvm_heap_used_bytes", "jvm_heap_max_bytes":
+		case "runtime_heap_used_bytes", "jvm_heap_used_bytes", "jvm_heap_max_bytes", "host_memory_used_bytes", "host_memory_total_bytes", "host_disk_used_bytes", "host_disk_total_bytes":
 			kind = collector.MetricKindGauge
 			unit = "bytes"
 		case "process_cpu_usage":
+			kind = collector.MetricKindGauge
+			unit = "cores"
+		case "host_cpu_usage":
 			kind = collector.MetricKindGauge
 			unit = "ratio"
 		}

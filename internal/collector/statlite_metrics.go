@@ -38,9 +38,14 @@ type StatliteMetricsValues struct {
 	Responses5xxTotal           StatliteMetricsField `json:"responses_5xx_total,omitempty"`
 	RequestDurationSecondsTotal StatliteMetricsField `json:"request_duration_seconds_total,omitempty"`
 	RequestDurationSecondsMax   StatliteMetricsField `json:"request_duration_seconds_max,omitempty"`
-	CPUUsage                    StatliteMetricsField `json:"cpu_usage,omitempty"`
+	ProcessCPUUsage             StatliteMetricsField `json:"process_cpu_usage,omitempty"`
 	RuntimeHeapUsedBytes        StatliteMetricsField `json:"runtime_heap_used_bytes,omitempty"`
 	UptimeSeconds               StatliteMetricsField `json:"uptime_seconds,omitempty"`
+	HostCPUUsage                StatliteMetricsField `json:"host_cpu_usage,omitempty"`
+	HostMemoryUsedBytes         StatliteMetricsField `json:"host_memory_used_bytes,omitempty"`
+	HostMemoryTotalBytes        StatliteMetricsField `json:"host_memory_total_bytes,omitempty"`
+	HostDiskUsedBytes           StatliteMetricsField `json:"host_disk_used_bytes,omitempty"`
+	HostDiskTotalBytes          StatliteMetricsField `json:"host_disk_total_bytes,omitempty"`
 }
 
 // StatliteMetricsField preserves the JSON representation of an optional field.

@@ -215,6 +215,28 @@ targets:
 	}
 }
 
+func TestLoadAcceptsLocalHostTarget(t *testing.T) {
+	path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9091"
+storage:
+  sqlite_path: "./statlite-self.sqlite"
+polling:
+  interval: "30s"
+targets:
+  - name: "host"
+    type: "host"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	metadata := cfg.Targets[0].DisplayMetadata()
+	if metadata.Endpoint != "local host" || metadata.EndpointSource != "local" {
+		t.Fatalf("DisplayMetadata() = %#v, want local host endpoint", metadata)
+	}
+}
+
 func TestLoadRejectsDuplicateTargetNamesAfterTrimming(t *testing.T) {
 	path := writeConfig(t, `
 server:

@@ -95,13 +95,13 @@ The following issue requirements must remain true throughout implementation:
 
 ## Progress
 
-Current Phase: Phase 1 — Contract and normalized data
-Current Chunk: Chunk 1.1 — Lock the profile and host collection boundary
+Current Phase: Phase 2 — StatLite endpoint and collector migration
+Current Chunk: Chunk 2.1 — Emit StatLite's canonical profile
 Status: [ ] Not started
 
 ### Phase Checklist
 
-- [ ] Phase 1 — Contract and normalized data
+- [x] Phase 1 — Contract and normalized data
 - [ ] Phase 2 — StatLite endpoint and collector migration
 - [ ] Phase 3 — Capability-based dashboard
 - [ ] Phase 4 — Config, examples, documentation, and regression verification
@@ -171,7 +171,7 @@ test suite passes.
 
 ### Chunk 1.1 — Lock the profile and host collection boundary
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -189,14 +189,14 @@ Preconditions:
 
 Checklist:
 
-- [ ] (design) Amend `docs/statlite-metrics-v1.md`'s response and field table:
+- [x] (design) Amend `docs/statlite-metrics-v1.md`'s response and field table:
   replace `cpu_usage`, add all five host fields including
   `host_disk_used_bytes` and `host_disk_total_bytes`, define units/ranges,
   single-filesystem selection defaults, and container-visible semantics, and
   list memory/disk percentages as StatLite consumer-derived values rather than
   producer fields. Explicitly reserve only conceptual room for future disk I/O
   fields; do not define or implement their semantics.
-- [ ] (impl) Update `internal/collector/statlite_metrics.go` and
+- [x] (impl) Update `internal/collector/statlite_metrics.go` and
   `internal/collector/statlite_metrics_collector.go` to decode
   `process_cpu_usage` and the host fields, map them to `process_cpu_usage`,
   `host_cpu_usage`, `host_memory_used_bytes`, `host_memory_total_bytes`,
@@ -205,7 +205,7 @@ Checklist:
   above memory total, and disk used values above disk total when each pair is
   valid. Use unit `cores` for `process_cpu_usage` and `ratio` for
   `host_cpu_usage`.
-- [ ] (impl) Add the fixed local `host` target type in `internal/config` and
+- [x] (impl) Add the fixed local `host` target type in `internal/config` and
   `internal/app`, with a collector under `internal/collector` that emits only
   the same five normalized host keys. Give it no URL/auth requirement and no
   application/process samples. It must use the same dependency-light sampler,
@@ -213,21 +213,21 @@ Checklist:
   when easily available and otherwise falling back to the current working
   directory. Display it as a local endpoint such as `local host`, never a
   filesystem path.
-- [ ] (impl) Extend `internal/storage/types.go`, `series.go`, and
+- [x] (impl) Extend `internal/storage/types.go`, `series.go`, and
   `downsample.go` so each raw host sample first derives a memory/disk percentage
   only when its own used/total pair is valid and total is positive. Return the
   raw bytes and derived percentage gauges; when downsampling, average those
   already-derived percentage gauges rather than combining used/total values
   from different observations. Preserve nil for incomplete or invalid pairs
   and keep raw samples as the source of truth without storing percentages.
-- [ ] (test) Cover complete/sparse/invalid profile host and disk fields,
+- [x] (test) Cover complete/sparse/invalid profile host and disk fields,
   renamed process CPU above `1.0`, host CPU range rejection, negative and
   non-finite disk values, used above total for both memory and disk, zero
   total, a missing byte of a pair, shared keys from the local host collector,
   and host/disk values through aggregation/downsampling. Assert percentages
   are calculated per sample and downsampling averages those gauges rather than
   combining unrelated byte observations.
-- [ ] (verify) Run focused collector/storage/config tests, then `go test ./...`.
+- [x] (verify) Run focused collector/storage/config tests, then `go test ./...`.
 
 Done Criteria:
 

@@ -314,6 +314,34 @@ func TestClockBucketStartAlignsToDuration(t *testing.T) {
 	}
 }
 
+func TestAggregateSeriesAveragesPercentagesDerivedPerSample(t *testing.T) {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	series := &Series{Start: start, End: start.Add(time.Minute), Points: []SeriesPoint{
+		{
+			Timestamp:            start,
+			HostMemoryUsedBytes:  f64(10),
+			HostMemoryTotalBytes: f64(100),
+			HostMemoryUsage:      f64(0.1),
+			HostDiskUsedBytes:    f64(90),
+			HostDiskTotalBytes:   f64(100),
+			HostDiskUsage:        f64(0.9),
+		},
+		{
+			Timestamp:            start.Add(30 * time.Second),
+			HostMemoryUsedBytes:  f64(90),
+			HostMemoryTotalBytes: f64(900),
+			HostMemoryUsage:      f64(0.1),
+			HostDiskUsedBytes:    f64(10),
+			HostDiskTotalBytes:   f64(900),
+			HostDiskUsage:        f64(1.0 / 90.0),
+		},
+	}}
+
+	point := AggregateSeries(series, time.Minute).Points[0]
+	assertFloatPtr(t, "host_memory_usage", point.HostMemoryUsage, 0.1)
+	assertFloatPtr(t, "host_disk_usage", point.HostDiskUsage, (0.9+1.0/90.0)/2)
+}
+
 func assertFloatPtr(t *testing.T, name string, got *float64, want float64) {
 	t.Helper()
 	if got == nil {

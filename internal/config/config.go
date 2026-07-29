@@ -17,6 +17,7 @@ const (
 	TargetTypeStatliteMetrics = "statlite-metrics"
 	TargetTypeStatliteHealth  = "statlite-health"
 	TargetTypeStatliteLegacy  = "statlite"
+	TargetTypeHost            = "host"
 )
 
 type Config struct {
@@ -157,8 +158,12 @@ func (c *Config) validate() error {
 			if t.URL == "" {
 				return fmt.Errorf("targets[%d].url is required for type %s", i, targetType)
 			}
+		case TargetTypeHost:
+			if t.URL != "" || t.ActuatorBaseURL != "" {
+				return fmt.Errorf("targets[%d].type host does not accept url or actuator_base_url", i)
+			}
 		default:
-			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite-metrics, statlite-health, statlite)", i, targetType)
+			return fmt.Errorf("targets[%d].type: unsupported type %q (supported: spring, statlite-metrics, statlite-health, statlite, host)", i, targetType)
 		}
 		if t.Auth != nil {
 			if targetType != TargetTypeSpring {
@@ -192,6 +197,8 @@ func (t TargetConfig) displayEndpoint() (string, string) {
 	switch t.Type {
 	case TargetTypeStatliteMetrics, TargetTypeStatliteHealth, TargetTypeStatliteLegacy:
 		return t.URL, "url"
+	case TargetTypeHost:
+		return "local host", "local"
 	default:
 		return t.ActuatorBaseURL, "actuator_base_url"
 	}

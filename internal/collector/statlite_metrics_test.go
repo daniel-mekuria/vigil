@@ -35,7 +35,12 @@ func TestStatliteMetricsClientFetchesCompleteV1Response(t *testing.T) {
 				"responses_5xx_total": 4,
 				"request_duration_seconds_total": 84.31,
 				"request_duration_seconds_max": 1.42,
-				"cpu_usage": 0.031,
+				"process_cpu_usage": 0.031,
+				"host_cpu_usage": 0.4,
+				"host_memory_used_bytes": 30,
+				"host_memory_total_bytes": 100,
+				"host_disk_used_bytes": 40,
+				"host_disk_total_bytes": 200,
 				"runtime_heap_used_bytes": 25165824,
 				"uptime_seconds": 1820
 			}
@@ -74,7 +79,12 @@ func TestStatliteMetricsClientFetchesCompleteV1Response(t *testing.T) {
 		"responses_5xx_total":            response.Metrics.Responses5xxTotal,
 		"request_duration_seconds_total": response.Metrics.RequestDurationSecondsTotal,
 		"request_duration_seconds_max":   response.Metrics.RequestDurationSecondsMax,
-		"cpu_usage":                      response.Metrics.CPUUsage,
+		"process_cpu_usage":              response.Metrics.ProcessCPUUsage,
+		"host_cpu_usage":                 response.Metrics.HostCPUUsage,
+		"host_memory_used_bytes":         response.Metrics.HostMemoryUsedBytes,
+		"host_memory_total_bytes":        response.Metrics.HostMemoryTotalBytes,
+		"host_disk_used_bytes":           response.Metrics.HostDiskUsedBytes,
+		"host_disk_total_bytes":          response.Metrics.HostDiskTotalBytes,
 		"runtime_heap_used_bytes":        response.Metrics.RuntimeHeapUsedBytes,
 		"uptime_seconds":                 response.Metrics.UptimeSeconds,
 	} {
@@ -136,7 +146,7 @@ func TestStatliteMetricsClientPreservesOptionalFieldRepresentations(t *testing.T
 		"started_at": 123,
 		"metrics": {
 			"requests_total": -1,
-			"cpu_usage": 1e999,
+			"process_cpu_usage": 1e999,
 			"runtime_heap_used_bytes": "invalid"
 		}
 	}`)
@@ -153,8 +163,8 @@ func TestStatliteMetricsClientPreservesOptionalFieldRepresentations(t *testing.T
 	if got := string(response.Metrics.RequestsTotal.raw); got != "-1" {
 		t.Fatalf("RequestsTotal raw = %q, want -1", got)
 	}
-	if got := string(response.Metrics.CPUUsage.raw); got != "1e999" {
-		t.Fatalf("CPUUsage raw = %q, want 1e999", got)
+	if got := string(response.Metrics.ProcessCPUUsage.raw); got != "1e999" {
+		t.Fatalf("ProcessCPUUsage raw = %q, want 1e999", got)
 	}
 	if got := string(response.Metrics.RuntimeHeapUsedBytes.raw); got != `"invalid"` {
 		t.Fatalf("RuntimeHeapUsedBytes raw = %q, want string", got)

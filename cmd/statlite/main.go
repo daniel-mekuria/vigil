@@ -63,7 +63,7 @@ func main() {
 	defer store.Close()
 	retentionCutoff := storage.NewRetentionCutoffTracker(cfg.Storage.RetentionDays)
 
-	manager, err := app.NewMonitorManager(cfg.Targets, store, timeout, interval)
+	manager, err := app.NewMonitorManager(cfg.Targets, store, cfg.Storage.SQLitePath, timeout, interval)
 	if err != nil {
 		log.Fatalf("monitor manager: %v", err)
 	}

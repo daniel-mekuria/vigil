@@ -1,8 +1,10 @@
 # StatLite Metrics v1
 
-`statlite-metrics/v1` is a fixed, language-neutral application metrics profile
-for small integrations. It is not a general-purpose metrics protocol: it has
-no labels, arbitrary metric definitions, or Prometheus/OpenMetrics syntax.
+`statlite-metrics/v1` is a fixed, language-neutral application, process, and
+optional host-resource metrics profile for small integrations. StatLite uses
+this same profile for its own self-monitoring. It is not a general-purpose
+metrics protocol: it has no labels, arbitrary metric definitions, or
+Prometheus/OpenMetrics syntax.
 
 ## Endpoint contract
 
@@ -25,9 +27,14 @@ A complete response looks like this:
     "responses_5xx_total": 4,
     "request_duration_seconds_total": 84.31,
     "request_duration_seconds_max": 1.42,
-    "cpu_usage": 0.031,
+    "process_cpu_usage": 0.031,
     "runtime_heap_used_bytes": 25165824,
-    "uptime_seconds": 1820
+    "uptime_seconds": 1820,
+    "host_cpu_usage": 0.19,
+    "host_memory_used_bytes": 1610612736,
+    "host_memory_total_bytes": 4294967296,
+    "host_disk_used_bytes": 19327352832,
+    "host_disk_total_bytes": 42949672960
   }
 }
 ```
@@ -60,9 +67,14 @@ it improves restart detection.
 | `metrics.responses_5xx_total` | number | requests | Yes | Monotonic counter of HTTP 5xx responses. |
 | `metrics.request_duration_seconds_total` | number | seconds | Yes | Monotonic total request duration. |
 | `metrics.request_duration_seconds_max` | number | seconds | Yes | Maximum observed request duration in the application’s current observation window. The observation window is integration-defined in v1 and should be documented by the helper or application. |
-| `metrics.cpu_usage` | number | CPU cores | Yes | Process CPU consumption expressed as CPU cores; it may exceed `1.0`. |
+| `metrics.process_cpu_usage` | number | CPU cores | Yes | Process CPU consumption expressed as CPU cores; it may exceed `1.0`. |
 | `metrics.runtime_heap_used_bytes` | number | bytes | Yes | Memory currently managed by the language runtime, not total process RSS and not a maximum-memory value. |
 | `metrics.uptime_seconds` | number | seconds | Yes | Process uptime. |
+| `metrics.host_cpu_usage` | number | ratio | Yes | Current host CPU use as a fraction of visible capacity in `[0.0, 1.0]`. |
+| `metrics.host_memory_used_bytes` | number | bytes | Yes | Used memory visible to the producer. Must not exceed `host_memory_total_bytes` when both are present. |
+| `metrics.host_memory_total_bytes` | number | bytes | Yes | Total memory visible to the producer. |
+| `metrics.host_disk_used_bytes` | number | bytes | Yes | Used capacity for one producer-selected relevant filesystem. Must not exceed `host_disk_total_bytes` when both are present. |
+| `metrics.host_disk_total_bytes` | number | bytes | Yes | Total capacity for the same selected filesystem as `host_disk_used_bytes`. |
 
 ### Counters
 
@@ -73,9 +85,29 @@ counter deltas when querying history and does not display negative deltas.
 
 ### Gauges
 
-`request_duration_seconds_max`, `cpu_usage`, `runtime_heap_used_bytes`, and
-`uptime_seconds` are gauges. Their values describe the current observation of
-the process or application rather than a cumulative total.
+`request_duration_seconds_max`, `process_cpu_usage`, `runtime_heap_used_bytes`,
+`uptime_seconds`, and all host fields are gauges. Their values describe the
+current observation of the process or execution environment rather than a
+cumulative total.
+
+## Host resource guidance
+
+Host values are lightweight operational estimates, not accounting-grade
+measurements. Producers should prefer simple, dependency-light collection and
+omit unavailable values rather than adding complex platform-specific behavior.
+In containers, fields describe the execution environment visible to the
+producer on a best-effort basis; the profile does not promise precise handling
+of every cgroup configuration.
+
+StatLite derives memory and disk percentages only when each pair is present,
+valid, and has a positive total. Producers must not send percentage fields.
+
+Disk capacity describes one relevant filesystem, not every disk, device,
+volume, or mount. StatLite self-monitoring selects the filesystem containing
+its SQLite database. A simple application may select its working directory;
+an application with a dedicated data directory should select that instead. Do
+not expose filesystem paths, mount names, device labels, arrays, or per-volume
+metrics. Disk I/O counters are intentionally outside v1 for now.
 
 ## Producer guidance
 

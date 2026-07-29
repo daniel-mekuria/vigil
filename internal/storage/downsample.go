@@ -84,8 +84,12 @@ type bucketAccumulator struct {
 	requestsSum, http404Sum, http4xxSum, http5xxSum float64
 	requestsN, http404N, http4xxN, http5xxN         int
 
-	latencySum, heapSum, cpuSum float64
-	latencyN, heapN, cpuN       int
+	latencySum, heapSum, cpuSum, hostCPUSum                   float64
+	latencyN, heapN, cpuN, hostCPUN                           int
+	hostMemoryUsedSum, hostMemoryTotalSum, hostMemoryUsageSum float64
+	hostMemoryUsedN, hostMemoryTotalN, hostMemoryUsageN       int
+	hostDiskUsedSum, hostDiskTotalSum, hostDiskUsageSum       float64
+	hostDiskUsedN, hostDiskTotalN, hostDiskUsageN             int
 }
 
 func newBucketAccumulator(start time.Time) *bucketAccumulator {
@@ -117,6 +121,13 @@ func (a *bucketAccumulator) add(point SeriesPoint) {
 	addSum(&a.latencySum, &a.latencyN, point.AverageLatencySeconds)
 	addSum(&a.heapSum, &a.heapN, point.HeapUsedBytes)
 	addSum(&a.cpuSum, &a.cpuN, point.ProcessCPUUsage)
+	addSum(&a.hostCPUSum, &a.hostCPUN, point.HostCPUUsage)
+	addSum(&a.hostMemoryUsedSum, &a.hostMemoryUsedN, point.HostMemoryUsedBytes)
+	addSum(&a.hostMemoryTotalSum, &a.hostMemoryTotalN, point.HostMemoryTotalBytes)
+	addSum(&a.hostMemoryUsageSum, &a.hostMemoryUsageN, point.HostMemoryUsage)
+	addSum(&a.hostDiskUsedSum, &a.hostDiskUsedN, point.HostDiskUsedBytes)
+	addSum(&a.hostDiskTotalSum, &a.hostDiskTotalN, point.HostDiskTotalBytes)
+	addSum(&a.hostDiskUsageSum, &a.hostDiskUsageN, point.HostDiskUsage)
 }
 
 func (a *bucketAccumulator) point() SeriesPoint {
@@ -129,6 +140,13 @@ func (a *bucketAccumulator) point() SeriesPoint {
 		AverageLatencySeconds: avgResult(a.latencySum, a.latencyN),
 		HeapUsedBytes:         avgResult(a.heapSum, a.heapN),
 		ProcessCPUUsage:       avgResult(a.cpuSum, a.cpuN),
+		HostCPUUsage:          avgResult(a.hostCPUSum, a.hostCPUN),
+		HostMemoryUsedBytes:   avgResult(a.hostMemoryUsedSum, a.hostMemoryUsedN),
+		HostMemoryTotalBytes:  avgResult(a.hostMemoryTotalSum, a.hostMemoryTotalN),
+		HostMemoryUsage:       avgResult(a.hostMemoryUsageSum, a.hostMemoryUsageN),
+		HostDiskUsedBytes:     avgResult(a.hostDiskUsedSum, a.hostDiskUsedN),
+		HostDiskTotalBytes:    avgResult(a.hostDiskTotalSum, a.hostDiskTotalN),
+		HostDiskUsage:         avgResult(a.hostDiskUsageSum, a.hostDiskUsageN),
 	}
 	if a.pollIDCommon {
 		point.PollID = a.pollID

@@ -39,6 +39,12 @@ func TestNewCollectorBuildsConfiguredTargetTypes(t *testing.T) {
 			wantTarget: "*collector.StatliteMetricsCollector",
 		},
 		{
+			name:       "local host",
+			target:     config.TargetConfig{Name: "host", Type: config.TargetTypeHost},
+			wantType:   "local host",
+			wantTarget: "*collector.HostCollector",
+		},
+		{
 			name:       "statlite health",
 			target:     config.TargetConfig{Name: "health", Type: config.TargetTypeStatliteHealth, URL: "https://example.com/healthz"},
 			wantType:   "statlite health",
