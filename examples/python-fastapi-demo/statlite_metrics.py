@@ -78,9 +78,9 @@ class StatLiteMetrics:
             process_cpu_time = time.process_time()
             wall_delta = now - self._last_cpu_wall
             cpu_delta = process_cpu_time - self._last_cpu_time
-            cpu_usage = cpu_delta / wall_delta if wall_delta > 0 else 0.0
-            if not math.isfinite(cpu_usage) or cpu_usage < 0:
-                cpu_usage = 0.0
+            process_cpu_usage = cpu_delta / wall_delta if wall_delta > 0 else 0.0
+            if not math.isfinite(process_cpu_usage) or process_cpu_usage < 0:
+                process_cpu_usage = 0.0
             self._last_cpu_wall = now
             self._last_cpu_time = process_cpu_time
 
@@ -95,7 +95,7 @@ class StatLiteMetrics:
                 "request_duration_seconds_max": self._request_duration_seconds_max,
                 # CPU time consumed during the interval divided by wall time:
                 # 1.0 means one logical CPU core was fully used.
-                "cpu_usage": cpu_usage,
+                "process_cpu_usage": process_cpu_usage,
                 "uptime_seconds": max(0.0, now - self._started_monotonic),
             }
 

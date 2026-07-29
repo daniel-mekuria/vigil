@@ -144,6 +144,42 @@ func TestStatliteMetricsCollectorDoesNotWarnForMissingOptionalMetrics(t *testing
 	}
 }
 
+func TestStatliteMetricsCollectorAcceptsFastAPIApplicationProcessProfile(t *testing.T) {
+	server := newStatliteMetricsServer(t, http.StatusOK, `{
+		"schema": "statlite-metrics/v1",
+		"status": "UP",
+		"started_at": "2026-07-29T12:00:00Z",
+		"metrics": {
+			"requests_total": 12,
+			"responses_404_total": 2,
+			"responses_4xx_total": 3,
+			"responses_5xx_total": 1,
+			"request_duration_seconds_total": 1.25,
+			"request_duration_seconds_max": 0.5,
+			"process_cpu_usage": 1.25,
+			"runtime_heap_used_bytes": 1024,
+			"uptime_seconds": 60
+		}
+	}`)
+	defer server.Close()
+
+	result, err := NewStatliteMetricsCollector("fastapi", newTestStatliteMetricsClient(t, server.URL)).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+
+	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 1.25, "cores")
+	assertSample(t, result, "runtime_heap_used_bytes", MetricKindGauge, 1024, "bytes")
+	for _, key := range []string{"host_cpu_usage", "host_memory_used_bytes", "host_memory_total_bytes", "host_disk_used_bytes", "host_disk_total_bytes"} {
+		if hasSample(result, key) {
+			t.Errorf("unexpected host sample %q in application/process-only FastAPI response", key)
+		}
+	}
+	if len(result.Events) != 0 {
+		t.Fatalf("Events = %#v, want no warnings for omitted optional host fields", result.Events)
+	}
+}
+
 func TestStatliteMetricsCollectorWarnsForInvalidStartedAt(t *testing.T) {
 	tests := []struct {
 		name      string

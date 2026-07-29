@@ -11,7 +11,9 @@ Prometheus/OpenMetrics syntax.
 An application exposes a `GET` endpoint that returns JSON with a successful
 2xx HTTP status. The endpoint should produce an inexpensive, process-local
 snapshot and should not perform application work such as a database query just
-to serve metrics.
+to serve metrics. StatLite exposes this canonical profile at
+`/statlite/metrics`; its `/healthz` endpoint is readiness-only and is not a
+profile endpoint.
 
 A complete response looks like this:
 

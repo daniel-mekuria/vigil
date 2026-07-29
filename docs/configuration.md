@@ -1,9 +1,9 @@
 # Configuration
 
-StatLite supports Spring Boot Actuator and the lightweight StatLite Metrics JSON
-format for small applications that need basic health, traffic, latency, CPU,
-and runtime memory monitoring without a full observability stack. StatLite is
-not a Prometheus/Grafana replacement.
+StatLite supports Spring Boot Actuator and the canonical fixed StatLite Metrics
+JSON profile for small applications that need basic health, traffic, latency,
+CPU, and runtime memory monitoring without a full observability stack.
+StatLite is not a Prometheus/Grafana replacement.
 
 StatLite loads `statlite.yaml` by default. Override with `--config`:
 
@@ -113,8 +113,9 @@ targets:
 ```
 
 `type: "statlite-metrics"` polls another StatLite (or this process) via
-`/statlite/metrics`, the canonical fixed `statlite-metrics/v1` profile. It is
-not a general metrics protocol for other applications.
+`/statlite/metrics`, the canonical fixed `statlite-metrics/v1` profile. The
+same profile is also available to supported external application integrations;
+it is not a general metrics protocol.
 
 ### StatLite Metrics v1
 

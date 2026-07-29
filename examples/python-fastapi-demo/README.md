@@ -55,10 +55,10 @@ The helper emits cumulative request, 404, 4xx, 5xx, and duration metrics. A
 v1 contract defines 404 as a 4xx subset. Unhandled application exceptions are
 counted as 5xx when FastAPI lets the middleware observe them.
 
-`cpu_usage` is process CPU time divided by wall-clock time since the previous
-metrics snapshot; `1.0` represents one fully used logical CPU core and values
-can exceed `1.0`. `uptime_seconds` and `started_at` describe this application
-process.
+`process_cpu_usage` is process CPU time divided by wall-clock time since the
+previous metrics snapshot. Its unit is CPU cores: `1.0` represents one fully
+used logical CPU core and values can exceed `1.0`. `uptime_seconds` and
+`started_at` describe this application process.
 
 `runtime_heap_used_bytes`, when present, is the current Python-managed
 allocation size reported by `tracemalloc`. It is runtime-specific traced
@@ -69,3 +69,17 @@ runtime-memory field is omitted.
 
 This is a compact single-process reference implementation, not a general
 metrics framework or a replacement for a full observability stack.
+
+The helper intentionally omits optional host CPU, memory, and disk fields. A
+central StatLite instance cannot infer those resources for this remote
+application; emit the optional fields deliberately or run StatLite on that
+host when host visibility is needed.
+
+## Check the helper
+
+The helper checks use only Python's standard library and do not require the
+FastAPI dependencies:
+
+```bash
+python3 -m unittest examples/python-fastapi-demo/test_statlite_metrics.py
+```

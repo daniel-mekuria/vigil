@@ -45,7 +45,8 @@ while release archives report the exact tag:
 statlite --version
 ```
 
-`GET /healthz` exposes the same version string.
+`GET /healthz` exposes the same version string and SQLite readiness. It is not
+a dashboard metrics endpoint.
 
 ## Before Releasing
 
@@ -106,7 +107,7 @@ The workflow is triggered by pushes of `v*` tags.
   is accessible.
 - Each archive contains a single `statlite` binary.
 - `statlite --version` reports the release tag.
-- `/healthz` reports the same version.
+- `/healthz` reports the same version and SQLite readiness.
 - Source builds from `main` after the release report the next `-dev` version.
 - `go test ./...` passes.
 - `go build -o statlite ./cmd/statlite` works for source users.

@@ -90,7 +90,7 @@ The following issue requirements must remain true throughout implementation:
 ## Progress
 
 Current Phase: Phase 4 — Config, examples, documentation, and regression verification
-Current Chunk: Chunk 4.1 — Lock the host-metrics deployment boundary
+Current Chunk: Chunk 4.2 — Update producers, guidance, and release-quality checks
 Status: [x] Complete
 
 ### Phase Checklist
@@ -98,7 +98,7 @@ Status: [x] Complete
 - [x] Phase 1 — Contract and normalized data
 - [x] Phase 2 — StatLite endpoint and collector migration
 - [x] Phase 3 — Capability-based dashboard
-- [ ] Phase 4 — Config, examples, documentation, and regression verification
+- [x] Phase 4 — Config, examples, documentation, and regression verification
 
 ### Blockers
 
@@ -474,7 +474,7 @@ Done Criteria:
 
 ### Chunk 4.2 — Update producers, guidance, and release-quality checks
 
-Status: [ ] Not started
+Status: [x] Complete
 
 Preconditions:
 
@@ -482,26 +482,26 @@ Preconditions:
 
 Checklist:
 
-- [ ] (impl) Update the FastAPI helper and README to emit
+- [x] (impl) Update the FastAPI helper and README to emit
   `process_cpu_usage` and runtime-managed memory. Keep host fields optional;
   the example does not need to implement host CPU, memory, or disk sampling.
   Retain scrape exclusion and omit values it cannot safely determine.
-- [ ] (impl) Update `docs/statlite-metrics-v1.md`, `docs/product.md`,
+- [x] (impl) Update `docs/statlite-metrics-v1.md`, `docs/product.md`,
   `docs/configuration.md`, and necessary README text to name the profile as
   canonical for StatLite and external integrations, describe host metrics as
   target-attached, and limit `/healthz` to readiness/version/SQLite semantics.
-- [ ] (impl) Update all relevant example configs and target-type summaries;
+- [x] (impl) Update all relevant example configs and target-type summaries;
   remove claims that `/healthz` is a self-monitoring integration.
-- [ ] (test) Add/adjust FastAPI example checks if the repository's test setup
+- [x] (test) Add/adjust FastAPI example checks if the repository's test setup
   can run them without new heavy tooling; otherwise perform the documented
   curl response validation. Verify the application/process-only response is
   accepted by the normal StatLite Metrics collector and omitted host fields
   produce no errors; record the result in the chunk completion note.
-- [ ] (verify) Run `go test ./...`, validate every bundled YAML example with
+- [x] (verify) Run `go test ./...`, validate every bundled YAML example with
   existing config tests, run the FastAPI example response through the normal
   StatLite Metrics collector test fixture, and inspect the dashboard at narrow
   and long ranges.
-- [ ] (verify) Update this plan's status, checklist items, and Outcome with
+- [x] (verify) Update this plan's status, checklist items, and Outcome with
   the compatibility decision and any intentional platform limitations before
   archiving.
 
@@ -514,36 +514,49 @@ Done Criteria:
 
 ## Acceptance Checklist
 
-- [ ] `statlite-metrics/v1` accepts and stores all five optional host fields.
-- [ ] `process_cpu_usage` replaces `cpu_usage` according to the recorded
+- [x] `statlite-metrics/v1` accepts and stores all five optional host fields.
+- [x] `process_cpu_usage` replaces `cpu_usage` according to the recorded
   compatibility decision.
-- [ ] Host memory percentage is derived correctly from used and total bytes.
-- [ ] Disk usage percentage is derived correctly from used and total bytes.
-- [ ] StatLite emits a valid `statlite-metrics/v1` response of its own.
-- [ ] StatLite self-monitoring reports the filesystem containing its SQLite
+- [x] Host memory percentage is derived correctly from used and total bytes.
+- [x] Disk usage percentage is derived correctly from used and total bytes.
+- [x] StatLite emits a valid `statlite-metrics/v1` response of its own.
+- [x] StatLite self-monitoring reports the filesystem containing its SQLite
   database when sampling succeeds.
-- [ ] Default self-monitoring uses `type: statlite-metrics`.
-- [ ] StatLite application, process, and host charts use the normal metrics
+- [x] Default self-monitoring uses `type: statlite-metrics`.
+- [x] StatLite application, process, and host charts use the normal metrics
   collector.
-- [ ] The specialized `statlite-health` path is removed or has an explicit,
+- [x] The specialized `statlite-health` path is removed or has an explicit,
   evidence-based deprecation record.
-- [ ] `/healthz` is readiness/version/SQLite only.
-- [ ] Remote-host limitations are documented: central StatLite cannot infer a
+- [x] `/healthz` is readiness/version/SQLite only.
+- [x] Remote-host limitations are documented: central StatLite cannot infer a
   remote application's host metrics without emitted optional fields or a
   StatLite instance running on that host.
-- [ ] Disk is shown as a separate Host resources chart.
-- [ ] Missing or invalid disk metrics do not invalidate other profile metrics.
-- [ ] The profile exposes no filesystem paths, mount labels, devices, or
+- [x] Disk is shown as a separate Host resources chart.
+- [x] Missing or invalid disk metrics do not invalidate other profile metrics.
+- [x] The profile exposes no filesystem paths, mount labels, devices, or
   multiple-disk collections.
-- [ ] Documentation/examples no longer recommend `/healthz` for dashboard
+- [x] Documentation/examples no longer recommend `/healthz` for dashboard
   self-monitoring.
-- [ ] Dashboard JavaScript tests run directly with Node's built-in test runner
+- [x] Dashboard JavaScript tests run directly with Node's built-in test runner
   and require no third-party JavaScript dependencies.
 
 ## Outcome
 
 Required before archive.
 
-- What was delivered:
-- What changed from the original plan:
-- What was intentionally skipped:
+- What was delivered: The fixed `statlite-metrics/v1` profile now carries the
+  renamed process CPU field and optional target-attached host capacity fields;
+  StatLite emits and self-collects the profile at `/statlite/metrics`; the
+  dashboard presents application, process, and host capabilities together on
+  their producing target. The FastAPI helper is application/process-only,
+  excludes its scrape from request accounting, and is covered by
+  standard-library tests plus the normal collector fixture.
+- What changed from the original plan: The source-tree compatibility audit
+  found no external adoption of `statlite-health`, `statlite`, or the retired
+  local `host` target type, so those dashboard target contracts were removed
+  rather than retained behind a migration path. Documentation now describes
+  `/healthz` solely as version and SQLite readiness.
+- What was intentionally skipped: External application integrations do not
+  implement host sampling. Host values remain optional best-effort estimates;
+  precise cgroup, filesystem, CPU-interval, and disk-I/O semantics remain
+  outside v1.

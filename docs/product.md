@@ -31,7 +31,7 @@ fixed integration boundaries, and a local-first dashboard.
 
 ## Supported integration boundaries
 
-StatLite has three supported target roles:
+StatLite has two supported target types:
 
 * `spring` — Spring Boot Actuator and a fixed set of Micrometer metrics. This
   is the default target type when `type` is omitted.
@@ -39,8 +39,6 @@ StatLite has three supported target roles:
   for StatLite and external profile producers. See the
   [producer-facing specification](statlite-metrics-v1.md) for its endpoint
   contract.
-* `host` — local-only host resource sampling with no remote endpoint.
-
 Spring and StatLite Metrics are application integrations. None of these
 boundaries is an arbitrary metrics API.
 
