@@ -56,10 +56,11 @@ RELEASE_VERSION=vX.Y.Z
 ```
 
 2. Confirm `internal/version/version.go` on `main` contains a `-dev` version.
-3. Run the test suite:
+3. Run the Go and dashboard JavaScript test suites:
 
 ```bash
 go test ./...
+node --test internal/dashboard/static/dashboard.test.js
 ```
 
 4. Build a local release-style binary and confirm the version override:

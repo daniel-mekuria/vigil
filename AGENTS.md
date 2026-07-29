@@ -73,6 +73,18 @@ For implementation work:
 * keep docs in sync when behavior changes
 * when the active implementation plan specifies an issue number, include that issue reference (for example, `#14`) in every related commit message
 
+## Verification
+
+When changing `internal/dashboard/static/index.html`, `dashboard.js`, or
+`dashboard.test.js`, run the dashboard unit tests locally:
+
+```bash
+node --test internal/dashboard/static/dashboard.test.js
+```
+
+`go test ./...` intentionally does not run Node tests; it remains the Go-only
+verification command for unrelated changes.
+
 For large or ambiguous changes, propose the smallest independently testable slice first.
 
 ## Capitalization Convention

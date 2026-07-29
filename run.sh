@@ -17,7 +17,7 @@ function help() {
     echo "  lint               - Run static analysis (go vet) and format check"
     echo "  test               - Run all project tests"
     echo "  build              - Build the development binary at ./${BINARY_NAME}"
-    echo "  release            - Build the release binary at ./dist/${BINARY_NAME}"
+    echo "  release            - Run dashboard tests and build release binaries at ./dist/"
     echo "  all                - Run lint, test, and build (default)"
     echo "  help               - Show this help message"
 }
@@ -50,8 +50,18 @@ function build() {
     echo -e "${GREEN}Done: ./${BINARY_NAME}${NC}"
 }
 
+function dashboard_test() {
+    if ! command -v node >/dev/null 2>&1; then
+        echo -e "${RED}Node.js is required to build a release. Install Node 22.14.0 and retry.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}==> Running dashboard JavaScript tests...${NC}"
+    (cd "${SCRIPT_DIR}" && node --test internal/dashboard/static/dashboard.test.js)
+}
+
 function release() {
     RELEASE_DIR="${SCRIPT_DIR}/dist"
+    dashboard_test
     echo -e "${GREEN}==> Building release binaries...${NC}"
     mkdir -p "${RELEASE_DIR}"
 
