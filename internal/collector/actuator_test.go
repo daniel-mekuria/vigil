@@ -48,6 +48,32 @@ func TestActuatorClientFetchesHealthWithBasicAuth(t *testing.T) {
 	}
 }
 
+func TestActuatorClientFetchesUnhealthyHealthFromNon2xxResponse(t *testing.T) {
+	for _, healthStatus := range []string{"DOWN", "OUT_OF_SERVICE"} {
+		t.Run(healthStatus, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				json.NewEncoder(w).Encode(map[string]string{"status": healthStatus})
+			}))
+			defer server.Close()
+
+			client, err := NewActuatorClient(server.URL+"/actuator", time.Second, nil)
+			if err != nil {
+				t.Fatalf("NewActuatorClient() error = %v", err)
+			}
+
+			health, err := client.FetchHealth(context.Background())
+			if err != nil {
+				t.Fatalf("FetchHealth() error = %v, want non-2xx health response to be accepted", err)
+			}
+			if health.Status != healthStatus {
+				t.Fatalf("health status = %q, want %q", health.Status, healthStatus)
+			}
+		})
+	}
+}
+
 func TestActuatorClientFetchesMetricWithTags(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/actuator/metrics/jvm.memory.used" {

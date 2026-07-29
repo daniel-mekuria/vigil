@@ -228,6 +228,35 @@ func TestSpringActuatorCollectorReturnsPollErrorWhenHealthFails(t *testing.T) {
 	}
 }
 
+func TestSpringActuatorCollectorRecordsUnhealthyHealthFromNon2xxResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/actuator/health" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "DOWN"})
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := NewActuatorClient(server.URL+"/actuator", time.Second, nil)
+	if err != nil {
+		t.Fatalf("NewActuatorClient() error = %v", err)
+	}
+
+	result, err := NewSpringActuatorCollector("app", client).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v, want unhealthy health to be recorded", err)
+	}
+	if result.HealthStatus != "DOWN" {
+		t.Fatalf("HealthStatus = %q, want DOWN", result.HealthStatus)
+	}
+	if countEvents(result, EventSeverityError, "health_fetch_failed") != 0 {
+		t.Fatalf("events = %#v, want no health fetch failure", result.Events)
+	}
+}
+
 func writeActuatorJSON(t *testing.T, w http.ResponseWriter, value interface{}) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")

@@ -82,10 +82,32 @@ func NewActuatorClient(baseURL string, timeout time.Duration, auth *BasicAuth) (
 
 func (c *ActuatorClient) FetchHealth(ctx context.Context) (*HealthResponse, error) {
 	var health HealthResponse
-	if err := c.getJSON(ctx, "health", nil, &health); err != nil {
+	if err := c.getHealthJSON(ctx, &health); err != nil {
 		return nil, err
 	}
 	return &health, nil
+}
+
+// getHealthJSON accepts a valid Spring Boot health payload even when its HTTP
+// status is non-2xx. Spring Boot maps DOWN and OUT_OF_SERVICE health statuses
+// to 503 by default; those statuses describe the monitored application rather
+// than a failure to poll it.
+func (c *ActuatorClient) getHealthJSON(ctx context.Context, health *HealthResponse) error {
+	endpointPath := "health"
+	body, statusCode, err := c.fetch(ctx, endpointPath, nil)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(body, health); err != nil {
+		return fmt.Errorf("parsing actuator %s response: %w", endpointPath, err)
+	}
+	if strings.TrimSpace(health.Status) == "" {
+		if statusCode < 200 || statusCode >= 300 {
+			return fmt.Errorf("actuator %s returned HTTP %d: %s", endpointPath, statusCode, strings.TrimSpace(string(body)))
+		}
+	}
+	setRaw(health, body)
+	return nil
 }
 
 func (c *ActuatorClient) FetchMetric(ctx context.Context, name string, tags []string) (*MetricResponse, error) {
@@ -120,13 +142,29 @@ func (h *HealthResponse) DBStatus() string {
 }
 
 func (c *ActuatorClient) getJSON(ctx context.Context, endpointPath string, query url.Values, dest interface{}) error {
+	body, statusCode, err := c.fetch(ctx, endpointPath, query)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return fmt.Errorf("actuator %s returned HTTP %d: %s", endpointPath, statusCode, strings.TrimSpace(string(body)))
+	}
+
+	if err := json.Unmarshal(body, dest); err != nil {
+		return fmt.Errorf("parsing actuator %s response: %w", endpointPath, err)
+	}
+	setRaw(dest, body)
+	return nil
+}
+
+func (c *ActuatorClient) fetch(ctx context.Context, endpointPath string, query url.Values) ([]byte, int, error) {
 	endpoint := *c.baseURL
 	endpoint.Path = joinURLPath(c.baseURL.Path, endpointPath)
 	endpoint.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return fmt.Errorf("creating actuator request: %w", err)
+		return nil, 0, fmt.Errorf("creating actuator request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 	if c.auth != nil {
@@ -135,23 +173,15 @@ func (c *ActuatorClient) getJSON(ctx context.Context, endpointPath string, query
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("fetching actuator %s: %w", endpointPath, err)
+		return nil, 0, fmt.Errorf("fetching actuator %s: %w", endpointPath, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return fmt.Errorf("reading actuator %s response: %w", endpointPath, err)
+		return nil, 0, fmt.Errorf("reading actuator %s response: %w", endpointPath, err)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("actuator %s returned HTTP %d: %s", endpointPath, resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	if err := json.Unmarshal(body, dest); err != nil {
-		return fmt.Errorf("parsing actuator %s response: %w", endpointPath, err)
-	}
-	setRaw(dest, body)
-	return nil
+	return body, resp.StatusCode, nil
 }
 
 func joinURLPath(basePath, endpointPath string) string {
