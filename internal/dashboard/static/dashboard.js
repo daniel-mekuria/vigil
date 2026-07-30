@@ -98,7 +98,7 @@ function buildCharts() {
     type: "line",
     data: { labels: [], datasets: [
       { label: "Runtime memory MB", unit: "mb", data: [], borderColor: palette.heap, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
-      { label: "CPU cores", unit: "cores", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
+      { label: "Process CPU", unit: "percent", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
     ] },
     options: runtimeOptions()
   });
@@ -148,7 +148,7 @@ function runtimeOptions() {
   options.scales = {
     x: { ticks: { color: palette.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
     y: { beginAtZero: true, position: "left", title: { display: true, text: "MB", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { color: palette.grid } },
-    y1: { beginAtZero: true, position: "right", title: { display: true, text: "cores", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
+    y1: { beginAtZero: true, position: "right", title: { display: true, text: "%", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
   };
   options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.unit);
   return options;
@@ -334,7 +334,7 @@ function renderSeries(series) {
   updateChart(state.charts.latency, labels, [points.map((point) => point.average_latency_seconds)]);
   updateChart(state.charts.runtime, labels, [
     points.map((point) => point.heap_used_bytes == null ? null : point.heap_used_bytes / 1024 / 1024),
-    points.map((point) => point.process_cpu_usage)
+    points.map((point) => point.process_cpu_usage == null ? null : point.process_cpu_usage * 100)
   ]);
   updateChart(state.charts.hostRuntime, labels, [
     points.map((point) => bytesToGB(point.host_memory_used_bytes)),
@@ -525,7 +525,6 @@ function formatValue(value, unit) {
   if (unit === "percent") return value.toFixed(1) + "%";
   if (unit === "mb") return value.toFixed(1) + " MB";
   if (unit === "gb") return value.toFixed(1) + " GB";
-  if (unit === "cores") return value.toFixed(2) + " cores";
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 

@@ -119,10 +119,11 @@ test("renderSeries applies capability visibility with a minimal DOM stub", () =>
   dashboard.state.charts = chartStubs();
 
   try {
-    dashboard.renderSeries({ points: [{ host_memory_used_bytes: 10 }] });
+    dashboard.renderSeries({ points: [{ host_memory_used_bytes: 10, process_cpu_usage: 0.25 }] });
     assert.equal(document.getElementById("host-section").hidden, false);
     assert.equal(document.getElementById("host-runtime-chart-card").hidden, false);
     assert.equal(document.getElementById("host-disk-chart-card").hidden, true);
+    assert.deepEqual(dashboard.state.charts.runtime.data.datasets[1].data, [25]);
 
     dashboard.renderSeries({ points: [] });
     assert.equal(document.getElementById("host-section").hidden, true);
