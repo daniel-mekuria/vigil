@@ -546,7 +546,8 @@ function initializeFromURL() {
   const target = params.get("target");
   const range = params.get("range");
   if (target) state.target = target;
-  if (["1h", "today", "7d", "30d"].includes(range)) state.range = range;
+  if (range === "today") state.range = "24h";
+  if (["1h", "24h", "7d", "30d"].includes(range)) state.range = range;
   document.querySelectorAll("[data-range]").forEach((button) => {
     button.classList.toggle("active", button.dataset.range === state.range);
   });

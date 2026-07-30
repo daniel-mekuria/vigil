@@ -78,14 +78,14 @@ func parseRange(r *http.Request) (time.Time, time.Time, DashboardRange, error) {
 	switch strings.ToLower(strings.TrimSpace(query.Get("range"))) {
 	case "", "1h", "last_hour":
 		return now.Add(-time.Hour), now, DashboardRange1H, nil
-	case "today":
-		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC), now, DashboardRangeToday, nil
+	case "24h", "today":
+		return now.Add(-24 * time.Hour), now, DashboardRange24H, nil
 	case "7d":
 		return now.AddDate(0, 0, -7), now, DashboardRange7D, nil
 	case "30d":
 		return now.AddDate(0, 0, -30), now, DashboardRange30D, nil
 	default:
-		return time.Time{}, time.Time{}, "", fmt.Errorf("unsupported range; use 1h, today, 7d, 30d, or start/end")
+		return time.Time{}, time.Time{}, "", fmt.Errorf("unsupported range; use 1h, 24h, 7d, 30d, or start/end")
 	}
 }
 

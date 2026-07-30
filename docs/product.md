@@ -175,7 +175,7 @@ The dashboard presents a small set of normalized concepts:
 * CPU usage; and
 * recent collector events.
 
-The supported dashboard ranges are last hour, today, 7 days, and 30 days.
+The supported dashboard ranges are the last hour, last 24 hours, 7 days, and 30 days.
 The dashboard is intentionally simple, local-first, and collector-neutral.
 
 ## Non-goals

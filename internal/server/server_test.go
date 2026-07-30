@@ -1368,7 +1368,7 @@ func TestDashboardBucketDurationPolicy(t *testing.T) {
 		want time.Duration
 	}{
 		{DashboardRange1H, 0},
-		{DashboardRangeToday, 5 * time.Minute},
+		{DashboardRange24H, 5 * time.Minute},
 		{DashboardRange7D, 30 * time.Minute},
 		{DashboardRange30D, 2 * time.Hour},
 		{DashboardRangeCustom, 0},
@@ -1953,24 +1953,19 @@ func TestParseRangeDefaultsToOneHour(t *testing.T) {
 	}
 }
 
-func TestParseRangeSupportsToday(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/series?range=today", nil)
-	start, end, dashRange, err := parseRange(req)
-	if err != nil {
-		t.Fatalf("parseRange(today) error = %v", err)
-	}
-	now := time.Now().UTC()
-	if start.Year() != now.Year() || start.Month() != now.Month() || start.Day() != now.Day() {
-		t.Fatalf("today start = %v, want midnight today", start)
-	}
-	if start.Hour() != 0 || start.Minute() != 0 || start.Second() != 0 {
-		t.Fatalf("today start = %v, want midnight", start)
-	}
-	if !end.After(start) {
-		t.Fatalf("end %v is not after start %v", end, start)
-	}
-	if dashRange != DashboardRangeToday {
-		t.Fatalf("DashboardRange = %q, want %q", dashRange, DashboardRangeToday)
+func TestParseRangeSupportsRolling24Hours(t *testing.T) {
+	for _, name := range []string{"24h", "today"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/series?range="+name, nil)
+		start, end, dashRange, err := parseRange(req)
+		if err != nil {
+			t.Fatalf("parseRange(%s) error = %v", name, err)
+		}
+		if got := end.Sub(start); got != 24*time.Hour {
+			t.Fatalf("%s range = %v, want 24h", name, got)
+		}
+		if dashRange != DashboardRange24H {
+			t.Fatalf("%s DashboardRange = %q, want %q", name, dashRange, DashboardRange24H)
+		}
 	}
 }
 

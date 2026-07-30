@@ -9,7 +9,7 @@ type DashboardRange string
 
 const (
 	DashboardRange1H     DashboardRange = "1h"
-	DashboardRangeToday  DashboardRange = "today"
+	DashboardRange24H    DashboardRange = "24h"
 	DashboardRange7D     DashboardRange = "7d"
 	DashboardRange30D    DashboardRange = "30d"
 	DashboardRangeCustom DashboardRange = "custom"
@@ -20,7 +20,7 @@ const (
 // native sample resolution is preserved.
 func dashboardBucketDuration(r DashboardRange) time.Duration {
 	switch r {
-	case DashboardRangeToday:
+	case DashboardRange24H:
 		return 5 * time.Minute
 	case DashboardRange7D:
 		return 30 * time.Minute
