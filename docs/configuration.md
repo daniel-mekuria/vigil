@@ -71,9 +71,29 @@ targets:
       password: "change-me"
 ```
 
-Omit `type` (or treat as the default Actuator target). StatLite polls Actuator health and a fixed set of Micrometer metrics and normalizes them for the dashboard.
+Omit `type` (or treat as the default Actuator target). StatLite polls Actuator
+health and a fixed set of Micrometer metrics and normalizes them for the
+dashboard.
 
 Missing optional metrics are handled gracefully: values may appear as `null` or charts may show gaps instead of failing the whole poll.
+
+Host metrics are disabled for Spring targets by default. In the common
+single-host setup, monitor host CPU, memory, and disk through the
+`statlite-self` target instead. For a remote Spring Boot application where
+running StatLite on that host is undesirable, enable Actuator host collection
+for that target:
+
+```yaml
+targets:
+  - name: "remote-app"
+    actuator_base_url: "https://remote.example.com/actuator"
+    collect_host_metrics: true
+```
+
+This adds polls for `system.cpu.usage`, `disk.free`, and `disk.total`. The
+resulting CPU and disk values describe the execution environment visible to
+the Spring Boot process, which may be a container rather than the physical
+host.
 
 ### Basic Auth
 

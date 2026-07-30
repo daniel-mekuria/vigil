@@ -501,7 +501,7 @@ func TestHealthzStaysOKWhenTargetPollingFails(t *testing.T) {
 		t.Fatalf("storage.Open() error = %v", err)
 	}
 	defer store.Close()
-	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client), store, time.Minute)
+	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client, false), store, time.Minute)
 	if err != nil {
 		t.Fatalf("monitor.New() error = %v", err)
 	}
@@ -549,7 +549,7 @@ func TestHealthzReportsErrorWhenStorageUnhealthy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open() error = %v", err)
 	}
-	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client), store, time.Minute)
+	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client, false), store, time.Minute)
 	if err != nil {
 		store.Close()
 		t.Fatalf("monitor.New() error = %v", err)
@@ -625,7 +625,7 @@ func TestDebugEndpointsAllowConcurrentPollAndLatestAccess(t *testing.T) {
 		t.Fatalf("storage.Open() error = %v", err)
 	}
 	defer store.Close()
-	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client), store, time.Minute)
+	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client, false), store, time.Minute)
 	if err != nil {
 		t.Fatalf("monitor.New() error = %v", err)
 	}
@@ -724,7 +724,7 @@ func TestHandleSeriesReturnsDataAfterPoll(t *testing.T) {
 		t.Fatalf("storage.Open() error = %v", err)
 	}
 	defer store.Close()
-	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client), store, time.Minute)
+	mon, err := monitor.New("app", collector.NewSpringActuatorCollector("app", client, false), store, time.Minute)
 	if err != nil {
 		t.Fatalf("monitor.New() error = %v", err)
 	}

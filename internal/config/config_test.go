@@ -33,6 +33,56 @@ targets:
 	if cfg.Targets[0].Type != "spring" {
 		t.Fatalf("Targets[0].Type = %q, want spring", cfg.Targets[0].Type)
 	}
+	if cfg.Targets[0].CollectHostMetrics {
+		t.Fatal("Targets[0].CollectHostMetrics = true, want false by default")
+	}
+}
+
+func TestLoadAcceptsSpringHostMetricsOptIn(t *testing.T) {
+	path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9090"
+storage:
+  sqlite_path: "./statlite.sqlite"
+polling:
+  interval: "5m"
+targets:
+  - name: "remote-app"
+    actuator_base_url: "http://example.com/actuator"
+    collect_host_metrics: true
+`)
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.Targets[0].CollectHostMetrics {
+		t.Fatal("Targets[0].CollectHostMetrics = false, want true")
+	}
+}
+
+func TestLoadRejectsHostMetricsForNonSpringTarget(t *testing.T) {
+	path := writeConfig(t, `
+server:
+  listen: "127.0.0.1:9090"
+storage:
+  sqlite_path: "./statlite.sqlite"
+polling:
+  interval: "5m"
+targets:
+  - name: "metrics"
+    type: "statlite-metrics"
+    url: "http://example.com/statlite/metrics"
+    collect_host_metrics: true
+`)
+
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("Load() error = nil, want collect_host_metrics target type error")
+	}
+	if !strings.Contains(err.Error(), "collect_host_metrics is supported only for type spring") {
+		t.Fatalf("Load() error = %q, want collect_host_metrics target type error", err)
+	}
 }
 
 func TestLoadExpandsEnvironmentVariablesAcrossConfig(t *testing.T) {

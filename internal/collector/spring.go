@@ -5,20 +5,23 @@ package collector
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type SpringActuatorCollector struct {
-	targetName string
-	client     *ActuatorClient
+	targetName         string
+	client             *ActuatorClient
+	collectHostMetrics bool
 }
 
-func NewSpringActuatorCollector(targetName string, client *ActuatorClient) *SpringActuatorCollector {
+func NewSpringActuatorCollector(targetName string, client *ActuatorClient, collectHostMetrics bool) *SpringActuatorCollector {
 	return &SpringActuatorCollector{
-		targetName: targetName,
-		client:     client,
+		targetName:         targetName,
+		client:             client,
+		collectHostMetrics: collectHostMetrics,
 	}
 }
 
@@ -50,9 +53,53 @@ func (c *SpringActuatorCollector) Collect(ctx context.Context) (*CollectionResul
 	c.collectGauge(ctx, result, "jvm_heap_used_bytes", "jvm.memory.used", []string{"area:heap"}, "VALUE", "bytes")
 	c.collectGauge(ctx, result, "jvm_heap_max_bytes", "jvm.memory.max", []string{"area:heap"}, "VALUE", "bytes")
 	c.collectGauge(ctx, result, "process_cpu_usage", "process.cpu.usage", nil, "VALUE", "ratio")
+	if c.collectHostMetrics {
+		c.collectHostResources(ctx, result)
+	}
 	c.collectProcessStartTime(ctx, result)
 
 	return result, nil
+}
+
+func (c *SpringActuatorCollector) collectHostResources(ctx context.Context, result *CollectionResult) {
+	if cpu, ok := c.fetchGauge(ctx, result, "host_cpu_usage", "system.cpu.usage"); ok {
+		if !finiteInRange(cpu, 0, 1) {
+			result.addEvent(EventSeverityWarning, "metric_invalid", "host_cpu_usage", fmt.Sprintf("system.cpu.usage value %v must be between 0 and 1", cpu))
+		} else {
+			result.addSample("host_cpu_usage", MetricKindGauge, cpu, "ratio")
+		}
+	}
+
+	free, freeOK := c.fetchGauge(ctx, result, "host_disk_used_bytes", "disk.free")
+	total, totalOK := c.fetchGauge(ctx, result, "host_disk_total_bytes", "disk.total")
+	if !freeOK || !totalOK {
+		return
+	}
+	if !finiteInRange(free, 0, math.MaxFloat64) || !finiteInRange(total, 0, math.MaxFloat64) || total == 0 || free > total {
+		result.addEvent(EventSeverityWarning, "metric_invalid", "host_disk_used_bytes", fmt.Sprintf("disk metrics require 0 <= free <= total and total > 0; free=%v total=%v", free, total))
+		return
+	}
+
+	result.addSample("host_disk_used_bytes", MetricKindGauge, total-free, "bytes")
+	result.addSample("host_disk_total_bytes", MetricKindGauge, total, "bytes")
+}
+
+func (c *SpringActuatorCollector) fetchGauge(ctx context.Context, result *CollectionResult, key, actuatorName string) (float64, bool) {
+	metric, err := c.client.FetchMetric(ctx, actuatorName, nil)
+	if err != nil {
+		result.addEvent(EventSeverityWarning, "metric_fetch_failed", key, err.Error())
+		return 0, false
+	}
+	value, ok := metricMeasurement(metric, "VALUE")
+	if !ok {
+		result.addEvent(EventSeverityWarning, "metric_measurement_missing", key, fmt.Sprintf("%s missing VALUE measurement", actuatorName))
+		return 0, false
+	}
+	return value, true
+}
+
+func finiteInRange(value, min, max float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= min && value <= max
 }
 
 func (c *SpringActuatorCollector) collectHTTP(ctx context.Context, result *CollectionResult) {

@@ -51,7 +51,7 @@ func newCollector(target config.TargetConfig, timeout time.Duration) (monitor.Co
 		if err != nil {
 			return nil, fmt.Errorf("actuator client: %w", err)
 		}
-		return collector.NewSpringActuatorCollector(target.Name, actuatorClient), nil
+		return collector.NewSpringActuatorCollector(target.Name, actuatorClient, target.CollectHostMetrics), nil
 	case config.TargetTypeStatliteMetrics:
 		client, err := collector.NewStatliteMetricsClient(target.URL, timeout)
 		if err != nil {

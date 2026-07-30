@@ -42,6 +42,12 @@ func TestSpringActuatorCollectorCollectsNormalizedBatch(t *testing.T) {
 			writeActuatorJSON(t, w, metricBody("jvm.memory.max", "bytes", map[string]float64{"VALUE": 4096}, nil))
 		case r.URL.Path == "/actuator/metrics/process.cpu.usage":
 			writeActuatorJSON(t, w, metricBody("process.cpu.usage", nil, map[string]float64{"VALUE": 0.12}, nil))
+		case r.URL.Path == "/actuator/metrics/system.cpu.usage":
+			writeActuatorJSON(t, w, metricBody("system.cpu.usage", nil, map[string]float64{"VALUE": 0.34}, nil))
+		case r.URL.Path == "/actuator/metrics/disk.free":
+			writeActuatorJSON(t, w, metricBody("disk.free", "bytes", map[string]float64{"VALUE": 600}, nil))
+		case r.URL.Path == "/actuator/metrics/disk.total":
+			writeActuatorJSON(t, w, metricBody("disk.total", "bytes", map[string]float64{"VALUE": 1000}, nil))
 		case r.URL.Path == "/actuator/metrics/process.start.time":
 			writeActuatorJSON(t, w, metricBody("process.start.time", "seconds", map[string]float64{"VALUE": 1700000000}, nil))
 		default:
@@ -54,7 +60,7 @@ func TestSpringActuatorCollectorCollectsNormalizedBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
-	collector := NewSpringActuatorCollector("app", client)
+	collector := NewSpringActuatorCollector("app", client, true)
 
 	result, err := collector.Collect(context.Background())
 	if err != nil {
@@ -79,6 +85,9 @@ func TestSpringActuatorCollectorCollectsNormalizedBatch(t *testing.T) {
 	assertSample(t, result, "jvm_heap_used_bytes", MetricKindGauge, 1024, "bytes")
 	assertSample(t, result, "jvm_heap_max_bytes", MetricKindGauge, 4096, "bytes")
 	assertSample(t, result, "process_cpu_usage", MetricKindGauge, 0.12, "ratio")
+	assertSample(t, result, "host_cpu_usage", MetricKindGauge, 0.34, "ratio")
+	assertSample(t, result, "host_disk_used_bytes", MetricKindGauge, 400, "bytes")
+	assertSample(t, result, "host_disk_total_bytes", MetricKindGauge, 1000, "bytes")
 	assertSample(t, result, "process_start_time", MetricKindGauge, 1700000000, "unix_seconds")
 	assertSampleKeys(t, result, []string{
 		"http_requests_total",
@@ -90,8 +99,47 @@ func TestSpringActuatorCollectorCollectsNormalizedBatch(t *testing.T) {
 		"jvm_heap_used_bytes",
 		"jvm_heap_max_bytes",
 		"process_cpu_usage",
+		"host_cpu_usage",
+		"host_disk_used_bytes",
+		"host_disk_total_bytes",
 		"process_start_time",
 	})
+}
+
+func TestSpringActuatorCollectorRejectsInvalidHostMetrics(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/actuator/health":
+			writeActuatorJSON(t, w, map[string]string{"status": "UP"})
+		case "/actuator/metrics/system.cpu.usage":
+			writeActuatorJSON(t, w, metricBody("system.cpu.usage", nil, map[string]float64{"VALUE": 1.2}, nil))
+		case "/actuator/metrics/disk.free":
+			writeActuatorJSON(t, w, metricBody("disk.free", "bytes", map[string]float64{"VALUE": 1200}, nil))
+		case "/actuator/metrics/disk.total":
+			writeActuatorJSON(t, w, metricBody("disk.total", "bytes", map[string]float64{"VALUE": 1000}, nil))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewActuatorClient(server.URL+"/actuator", time.Second, nil)
+	if err != nil {
+		t.Fatalf("NewActuatorClient() error = %v", err)
+	}
+	result, err := NewSpringActuatorCollector("app", client, true).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+
+	for _, key := range []string{"host_cpu_usage", "host_disk_used_bytes", "host_disk_total_bytes"} {
+		if hasSample(result, key) {
+			t.Fatalf("unexpected invalid sample %q in %#v", key, result.Samples)
+		}
+	}
+	if countEvents(result, EventSeverityWarning, "metric_invalid") != 2 {
+		t.Fatalf("events = %#v, want two metric_invalid warnings", result.Events)
+	}
 }
 
 func TestSpringActuatorCollectorReportsMissingOptionalMetricsAsWarnings(t *testing.T) {
@@ -108,7 +156,7 @@ func TestSpringActuatorCollectorReportsMissingOptionalMetricsAsWarnings(t *testi
 	if err != nil {
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
-	collector := NewSpringActuatorCollector("app", client)
+	collector := NewSpringActuatorCollector("app", client, false)
 
 	result, err := collector.Collect(context.Background())
 	if err != nil {
@@ -120,8 +168,8 @@ func TestSpringActuatorCollectorReportsMissingOptionalMetricsAsWarnings(t *testi
 	if len(result.Samples) != 0 {
 		t.Fatalf("Samples length = %d, want 0", len(result.Samples))
 	}
-	if countEvents(result, EventSeverityWarning, "metric_fetch_failed") < 5 {
-		t.Fatalf("warnings = %#v, want metric fetch warnings", result.Events)
+	if countEvents(result, EventSeverityWarning, "metric_fetch_failed") != 5 {
+		t.Fatalf("warnings = %#v, want five application metric fetch warnings and no disabled host metric requests", result.Events)
 	}
 }
 
@@ -142,7 +190,7 @@ func TestSpringActuatorCollectorHandlesSparseMetricResponses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
-	collector := NewSpringActuatorCollector("app", client)
+	collector := NewSpringActuatorCollector("app", client, false)
 
 	result, err := collector.Collect(context.Background())
 	if err != nil {
@@ -190,7 +238,7 @@ func TestSpringActuatorCollectorKeepsSamplesOnPartialMetricFailures(t *testing.T
 	if err != nil {
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
-	collector := NewSpringActuatorCollector("app", client)
+	collector := NewSpringActuatorCollector("app", client, false)
 
 	result, err := collector.Collect(context.Background())
 	if err != nil {
@@ -217,7 +265,7 @@ func TestSpringActuatorCollectorReturnsPollErrorWhenHealthFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
-	collector := NewSpringActuatorCollector("app", client)
+	collector := NewSpringActuatorCollector("app", client, false)
 
 	result, err := collector.Collect(context.Background())
 	if err == nil {
@@ -245,7 +293,7 @@ func TestSpringActuatorCollectorRecordsUnhealthyHealthFromNon2xxResponse(t *test
 		t.Fatalf("NewActuatorClient() error = %v", err)
 	}
 
-	result, err := NewSpringActuatorCollector("app", client).Collect(context.Background())
+	result, err := NewSpringActuatorCollector("app", client, false).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("Collect() error = %v, want unhealthy health to be recorded", err)
 	}

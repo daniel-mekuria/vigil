@@ -40,11 +40,12 @@ type PollingConfig struct {
 }
 
 type TargetConfig struct {
-	Type            string      `yaml:"type,omitempty"`
-	Name            string      `yaml:"name"`
-	ActuatorBaseURL string      `yaml:"actuator_base_url"`
-	URL             string      `yaml:"url"`
-	Auth            *AuthConfig `yaml:"auth,omitempty"`
+	Type               string      `yaml:"type,omitempty"`
+	Name               string      `yaml:"name"`
+	ActuatorBaseURL    string      `yaml:"actuator_base_url"`
+	URL                string      `yaml:"url"`
+	CollectHostMetrics bool        `yaml:"collect_host_metrics,omitempty"`
+	Auth               *AuthConfig `yaml:"auth,omitempty"`
 }
 
 type TargetDisplayMetadata struct {
@@ -173,6 +174,9 @@ func (c *Config) validate() error {
 			if t.Auth.Password == "" {
 				return fmt.Errorf("targets[%d].auth.password is required when auth is configured", i)
 			}
+		}
+		if t.CollectHostMetrics && targetType != TargetTypeSpring {
+			return fmt.Errorf("targets[%d].collect_host_metrics is supported only for type spring", i)
 		}
 	}
 	return nil
