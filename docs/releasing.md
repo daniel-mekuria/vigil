@@ -187,6 +187,13 @@ self-monitoring checks. The temporary Docker configuration leaves the
 maintainer's normal Docker credentials unchanged and explicitly keeps the
 active Docker daemon endpoint, such as the Colima daemon.
 
+After container verification, return to `main` before performing the post-release
+`-dev` version bump:
+
+```bash
+git switch main
+```
+
 ## Verification Checklist
 
 - The GitHub Release page exists for the new tag.
