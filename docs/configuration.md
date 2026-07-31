@@ -25,7 +25,7 @@ server:
   listen: "127.0.0.1:9090"
 ```
 
-StatLite has no built-in dashboard/API authentication. Keep `listen` on loopback unless access is protected externally.
+StatLite has no built-in dashboard/API authentication. Keep `listen` on loopback unless access is protected externally. Listening on a non-loopback address is normal inside a container, but ensure the published port is restricted or protected by a firewall, VPN, SSH tunnel, or authenticated reverse proxy.
 
 ## Storage
 

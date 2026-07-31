@@ -53,7 +53,7 @@ func main() {
 	}
 
 	if !config.IsLoopbackListen(cfg.Server.Listen) {
-		log.Printf("WARNING: StatLite has no built-in dashboard/API auth. Non-local listen address %q must be protected by firewall, VPN, SSH tunnel, or reverse proxy auth.", cfg.Server.Listen)
+		log.Printf("WARNING: StatLite's dashboard and API have no built-in authentication. Listening on %q is normal in a container, but ensure the published port is restricted or protected by a firewall, VPN, SSH tunnel, or authenticated reverse proxy.", cfg.Server.Listen)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
