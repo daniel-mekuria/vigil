@@ -99,6 +99,68 @@ git push origin "${RELEASE_VERSION}"
 
 The workflow is triggered by pushes of `v*` tags.
 
+## Publishing the Container Image
+
+Container publication is currently manual. Publish `:dev` first and publish
+`:latest` only after the registry image has been verified.
+
+Confirm the active Buildx builder supports both target platforms:
+
+```bash
+docker buildx inspect --bootstrap
+```
+
+Authenticate Docker to `ghcr.io` without storing credentials in the repository
+or shell history. Then publish `:dev` from the repository root:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg VERSION=dev \
+  --tag ghcr.io/pvrlabs/statlite:dev \
+  --push \
+  .
+```
+
+Confirm the manifest contains `linux/amd64` and `linux/arm64`:
+
+```bash
+docker buildx imagetools inspect ghcr.io/pvrlabs/statlite:dev
+```
+
+Pull and run `:dev`. Verify `/healthz`, `/statlite/metrics`, the dashboard, and
+the `statlite-self` target before publishing `:latest`.
+
+```bash
+docker pull ghcr.io/pvrlabs/statlite:dev
+docker run --rm \
+  -p 127.0.0.1:9090:9090 \
+  ghcr.io/pvrlabs/statlite:dev
+```
+
+After `:dev` passes verification, publish `:latest`:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg VERSION=dev \
+  --tag ghcr.io/pvrlabs/statlite:latest \
+  --push \
+  .
+```
+
+Inspect the `:latest` manifest, then confirm the public package can be pulled
+without GHCR credentials:
+
+```bash
+docker buildx imagetools inspect ghcr.io/pvrlabs/statlite:latest
+docker logout ghcr.io
+docker pull ghcr.io/pvrlabs/statlite:latest
+```
+
+Run the anonymously pulled image and repeat the health, metrics, dashboard, and
+self-monitoring checks. Log in to GHCR again before the next publication.
+
 ## Verification Checklist
 
 - The GitHub Release page exists for the new tag.
