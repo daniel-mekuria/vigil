@@ -85,7 +85,11 @@ Authenticate GitHub CLI and configure Git to use it for the HTTPS remote:
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth status
-gh auth setup-git
+ORIGIN_URL="$(git remote get-url origin)"
+case "${ORIGIN_URL}" in
+  https://*) gh auth setup-git ;;
+  *) echo "origin is not HTTPS; skip gh auth setup-git" ;;
+esac
 ```
 
 Authenticate Docker to GHCR separately. The GitHub CLI login does not provide
@@ -102,7 +106,8 @@ unset GHCR_TOKEN
 ```
 
 If the organization requires SSO, authorize the token for the organization.
-Confirm the GHCR package is public before testing anonymous pulls.
+Before the first push, confirm the organization allows public package creation.
+The package itself may not exist until the first authenticated push.
 
 ## Release Steps
 
@@ -120,11 +125,17 @@ git push origin "${RELEASE_VERSION}"
 ```
 
 4. Confirm the `release` workflow publishes all four archives and checksums to
-   the GitHub Release. Monitor it with:
+   the GitHub Release. Find the run for this release tag, then monitor that run:
 
 ```bash
-gh run list --workflow release.yml --limit 1
-gh run watch RUN_ID --exit-status
+RUN_ID="$(gh run list \
+  --workflow release.yml \
+  --limit 20 \
+  --json databaseId,headBranch,event,createdAt \
+  --jq ".[] | select(.headBranch == \"${RELEASE_VERSION}\" and .event == \"push\") | .databaseId" \
+  | head -n 1)"
+test -n "${RUN_ID}" || { echo "release workflow run not found"; exit 1; }
+gh run watch "${RUN_ID}" --exit-status
 gh release view "${RELEASE_VERSION}" --json tagName,name,isDraft,isPrerelease,assets,url
 ```
 
@@ -177,6 +188,9 @@ ghcr.io/pvrlabs/statlite:latest
 ```
 
 Both images report `statlite v0.2.1`.
+
+After the initial authenticated push creates the package, confirm the GHCR
+package visibility is public before testing anonymous pulls.
 
 Inspect both manifests and confirm they contain `linux/amd64` and
 `linux/arm64`:
