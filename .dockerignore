@@ -1,0 +1,26 @@
+.git
+.github
+.idea
+
+# Generated binaries and build output
+/statlite
+dist/
+*.exe
+*.test
+
+# Runtime data
+*.sqlite
+*.sqlite-*
+
+# Editor and OS files
+.DS_Store
+*.swp
+*.swo
+
+# Local Python environments and caches
+.venv/
+venv/
+env/
+examples/python-fastapi-demo/.venv/
+examples/python-fastapi-demo/__pycache__/
+**/__pycache__/

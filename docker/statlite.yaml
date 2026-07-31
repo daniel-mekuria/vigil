@@ -1,0 +1,14 @@
+server:
+  listen: "0.0.0.0:9090"
+
+storage:
+  sqlite_path: "/data/statlite.sqlite"
+
+polling:
+  interval: "5s"
+  timeout: "5s"
+
+targets:
+  - name: "statlite-self"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:9090/statlite/metrics"
