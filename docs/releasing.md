@@ -74,6 +74,36 @@ go build -trimpath -ldflags="-s -w -X github.com/pvrlabs/statlite/internal/versi
 5. Review `.github/workflows/release.yml` if archive names, platforms, or the
    binary path changed.
 
+## Operator Authentication
+
+Run these commands as the release operator before pushing the tag or publishing
+the container. Do not put tokens in commands, shell history, repository files,
+or chat messages.
+
+Authenticate GitHub CLI and configure Git to use it for the HTTPS remote:
+
+```bash
+gh auth login --hostname github.com --git-protocol https --web
+gh auth status
+gh auth setup-git
+```
+
+Authenticate Docker to GHCR separately. The GitHub CLI login does not provide
+Docker registry credentials. Use a GitHub classic personal access token with
+`read:packages` and `write:packages`. Enter it through a hidden prompt:
+
+```bash
+read -s GHCR_TOKEN
+printf '\n'
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+  --username YOUR_GITHUB_USERNAME \
+  --password-stdin
+unset GHCR_TOKEN
+```
+
+If the organization requires SSO, authorize the token for the organization.
+Confirm the GHCR package is public before testing anonymous pulls.
+
 ## Release Steps
 
 1. Commit any release-readiness changes.
@@ -90,7 +120,14 @@ git push origin "${RELEASE_VERSION}"
 ```
 
 4. Confirm the `release` workflow publishes all four archives and checksums to
-   the GitHub Release.
+   the GitHub Release. Monitor it with:
+
+```bash
+gh run list --workflow release.yml --limit 1
+gh run watch RUN_ID --exit-status
+gh release view "${RELEASE_VERSION}" --json tagName,name,isDraft,isPrerelease,assets,url
+```
+
 5. Publish the versioned container image and `:latest` using the section below
    before changing the source version to the next development version.
 6. After the release archives and container images are public, bump
