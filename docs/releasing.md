@@ -162,12 +162,17 @@ docker run --rm \
 After stopping that container, verify the public `:latest` image:
 
 ```bash
-docker logout ghcr.io
-docker pull ghcr.io/pvrlabs/statlite:latest
+(
+  ANON_DOCKER_CONFIG="$(mktemp -d)"
+  trap 'rm -rf "${ANON_DOCKER_CONFIG}"' EXIT
+  DOCKER_CONFIG="${ANON_DOCKER_CONFIG}" \
+    docker pull ghcr.io/pvrlabs/statlite:latest
+)
 ```
 
 Run the anonymously pulled image and repeat the health, metrics, dashboard, and
-self-monitoring checks. Log in to GHCR again before the next publication.
+self-monitoring checks. The temporary Docker configuration leaves the
+maintainer's normal Docker credentials unchanged.
 
 ## Verification Checklist
 
