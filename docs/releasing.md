@@ -101,8 +101,8 @@ The workflow is triggered by pushes of `v*` tags.
 
 ## Publishing the Container Image
 
-Container publication is currently manual. Publish `:dev` first and publish
-`:latest` only after the registry image has been verified.
+Container publication is currently manual. Publish the versioned image and
+`:latest` from the same multi-platform build.
 
 Confirm the active Buildx builder supports both target platforms:
 
@@ -111,49 +111,57 @@ docker buildx inspect --bootstrap
 ```
 
 Authenticate Docker to `ghcr.io` without storing credentials in the repository
-or shell history. Then publish `:dev` from the repository root:
+or shell history. Run this from the release commit, with `RELEASE_VERSION` set
+as described above:
 
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  --build-arg VERSION=dev \
-  --tag ghcr.io/pvrlabs/statlite:dev \
-  --push \
-  .
-```
-
-Confirm the manifest contains `linux/amd64` and `linux/arm64`:
-
-```bash
-docker buildx imagetools inspect ghcr.io/pvrlabs/statlite:dev
-```
-
-Pull and run `:dev`. Verify `/healthz`, `/statlite/metrics`, the dashboard, and
-the `statlite-self` target before publishing `:latest`.
-
-```bash
-docker pull ghcr.io/pvrlabs/statlite:dev
-docker run --rm \
-  -p 127.0.0.1:9090:9090 \
-  ghcr.io/pvrlabs/statlite:dev
-```
-
-After `:dev` passes verification, publish `:latest`:
-
-```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  --build-arg VERSION=dev \
+  --build-arg VERSION="${RELEASE_VERSION}" \
+  --tag "ghcr.io/pvrlabs/statlite:${RELEASE_VERSION#v}" \
   --tag ghcr.io/pvrlabs/statlite:latest \
   --push \
   .
 ```
 
-Inspect the `:latest` manifest, then confirm the public package can be pulled
-without GHCR credentials:
+For example, `RELEASE_VERSION=v0.2.1` publishes these tags:
+
+```text
+ghcr.io/pvrlabs/statlite:0.2.1
+ghcr.io/pvrlabs/statlite:latest
+```
+
+Both images report `statlite v0.2.1`.
+
+Inspect both manifests and confirm they contain `linux/amd64` and
+`linux/arm64`:
 
 ```bash
+docker buildx imagetools inspect \
+  "ghcr.io/pvrlabs/statlite:${RELEASE_VERSION#v}"
 docker buildx imagetools inspect ghcr.io/pvrlabs/statlite:latest
+```
+
+Pull the versioned image and verify its version:
+
+```bash
+docker pull "ghcr.io/pvrlabs/statlite:${RELEASE_VERSION#v}"
+docker run --rm "ghcr.io/pvrlabs/statlite:${RELEASE_VERSION#v}" --version
+```
+
+Run the published image and verify `/healthz`, `/statlite/metrics`, the
+dashboard, and the `statlite-self` target. Then confirm the public package can
+be pulled without GHCR credentials:
+
+```bash
+docker run --rm \
+  -p 127.0.0.1:9090:9090 \
+  "ghcr.io/pvrlabs/statlite:${RELEASE_VERSION#v}"
+```
+
+After stopping that container, verify the public `:latest` image:
+
+```bash
 docker logout ghcr.io
 docker pull ghcr.io/pvrlabs/statlite:latest
 ```

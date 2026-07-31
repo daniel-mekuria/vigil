@@ -61,3 +61,22 @@ the host port.
 
 Application examples are available under `examples/`, including the Spring
 Boot and Python FastAPI demos.
+
+## Maintainer pre-release image
+
+Maintainers may publish a temporary `:dev` image for pre-release verification.
+Build and inspect it from the repository root:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg VERSION=dev \
+  --tag ghcr.io/pvrlabs/statlite:dev \
+  --push \
+  .
+
+docker buildx imagetools inspect ghcr.io/pvrlabs/statlite:dev
+```
+
+See [Releasing StatLite](releasing.md) for publishing versioned and `:latest`
+images.
