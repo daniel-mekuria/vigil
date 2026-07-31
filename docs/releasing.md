@@ -184,8 +184,8 @@ ANON_DOCKER_HOST="$(docker context inspect "$(docker context show)" \
 
 Run the anonymously pulled image and repeat the health, metrics, dashboard, and
 self-monitoring checks. The temporary Docker configuration leaves the
-maintainer's normal Docker credentials unchanged and explicitly keeps the
-active Docker daemon endpoint, such as the Colima daemon.
+maintainer's normal Docker credentials unchanged and keeps the active Docker
+daemon endpoint for local Unix-socket contexts such as Colima.
 
 After container verification, return to `main` before performing the post-release
 `-dev` version bump:
