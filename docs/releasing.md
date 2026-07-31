@@ -91,11 +91,13 @@ git push origin "${RELEASE_VERSION}"
 
 4. Confirm the `release` workflow publishes all four archives and checksums to
    the GitHub Release.
-5. After the release is public, bump `internal/version/version.go` on `main` to
-   the next development version, for example `v0.1.1-dev` after releasing
-   `v0.1.0`.
-6. Commit and push the `-dev` bump.
-7. Continue with installer and Homebrew verification for the release.
+5. Publish the versioned container image and `:latest` using the section below
+   before changing the source version to the next development version.
+6. After the release archives and container images are public, bump
+   `internal/version/version.go` on `main` to the next development version, for
+   example `v0.1.1-dev` after releasing `v0.1.0`.
+7. Commit and push the `-dev` bump.
+8. Continue with installer and Homebrew verification for the release.
 
 The workflow is triggered by pushes of `v*` tags.
 
@@ -111,8 +113,14 @@ docker buildx inspect --bootstrap
 ```
 
 Authenticate Docker to `ghcr.io` without storing credentials in the repository
-or shell history. Run this from the release commit, with `RELEASE_VERSION` set
-as described above:
+or shell history. This section must run before the post-release `-dev` bump.
+Check out the release tag, with `RELEASE_VERSION` set as described above:
+
+```bash
+git switch --detach "${RELEASE_VERSION}"
+```
+
+Then run the build from the repository root:
 
 ```bash
 docker buildx build \
@@ -192,6 +200,11 @@ active Docker daemon endpoint, such as the Colima daemon.
 - `go test ./...` passes.
 - `go build -o statlite ./cmd/statlite` works for source users.
 - README Quick Start still works from a clean clone.
+- The versioned container manifest contains `linux/amd64` and `linux/arm64`.
+- The `:latest` container manifest contains `linux/amd64` and `linux/arm64`.
+- The versioned container reports `statlite ${RELEASE_VERSION}` from `--version`.
+- An anonymous pull of `:latest` succeeds, and the image passes health, metrics,
+  dashboard, and self-monitoring checks.
 
 ## Manual Fallback
 
