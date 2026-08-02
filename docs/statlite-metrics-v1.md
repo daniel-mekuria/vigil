@@ -56,6 +56,14 @@ every individual metric are optional. `status` is application-defined; v1 does
 not impose a status enum. `started_at` uses RFC 3339 and is recommended because
 it improves restart detection.
 
+## Python and FastAPI
+
+Request metrics must be measured inside the application, where requests and
+responses pass through its middleware. The [FastAPI integration example](../examples/python-fastapi-demo/)
+contains a copyable helper, FastAPI middleware registration, endpoint code, and
+StatLite target configuration. Only `schema` and `status` are required; all
+individual metrics are optional.
+
 ## Fields
 
 | Field | Type | Unit | Optional | Semantics |
@@ -127,8 +135,7 @@ them when it deliberately exposes the execution environment visible to its
 process; StatLite displays those values with that application target rather
 than creating a separate target.
 
-See the [FastAPI example](../examples/python-fastapi-demo/) for a complete
-Python implementation. It is illustrative; this document is the canonical
+The FastAPI helper is illustrative; this document remains the canonical
 contract.
 
 The configured StatLite target name is authoritative. The application should

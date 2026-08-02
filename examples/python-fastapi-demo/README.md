@@ -4,6 +4,57 @@ This small FastAPI application exposes a Hello World route and the fixed
 `statlite-metrics/v1` JSON profile. It uses the copyable
 `statlite_metrics.py` helper and has no Prometheus dependency.
 
+## Add StatLite Metrics to an existing FastAPI application
+
+StatLite polls a metrics endpoint, but it cannot determine request counts,
+HTTP errors, or request latency from outside the application. Those values
+must be measured where requests pass through the application.
+
+The example helper adds lightweight FastAPI middleware that records these
+values in memory and exposes them through `/statlite/metrics`. StatLite polls
+that endpoint periodically and stores the samples in its local SQLite database.
+
+Copy `statlite_metrics.py` into your application, register its middleware, and
+expose the metrics endpoint:
+
+```python
+from fastapi import FastAPI
+from statlite_metrics import StatLiteMetrics
+
+app = FastAPI()
+
+# Stores request counters and process metrics for this application process.
+metrics = StatLiteMetrics()
+
+# Measures normal application requests.
+# The helper excludes /statlite/metrics so StatLite polling does not inflate
+# the request counts and latency being monitored.
+app.middleware("http")(metrics.middleware)
+
+
+@app.get("/statlite/metrics")
+def statlite_metrics() -> dict:
+    # Returns the fixed statlite-metrics/v1 JSON snapshot that StatLite polls.
+    return metrics.snapshot()
+```
+
+Configure StatLite to poll the endpoint:
+
+```yaml
+targets:
+  - name: "my-python-app"
+    type: "statlite-metrics"
+    url: "http://127.0.0.1:8000/statlite/metrics"
+```
+
+`statlite_metrics.py` is copied into the application rather than installed as
+a package. The helper uses only the Python standard library, stores counters in
+memory, and is intended for one application process or one Uvicorn worker.
+Optional host metrics are not required.
+
+The instructions below run the repository demo; this section shows how to
+integrate the same copyable helper into an existing FastAPI application.
+
 ## Run the demo
 
 From this directory, create an environment and install the two runtime
