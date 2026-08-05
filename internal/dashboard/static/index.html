@@ -49,10 +49,11 @@ header {
 }
 .brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
 }
 .brand-icon {
+  align-self: center;
   width: 28px;
   height: 28px;
   object-fit: contain;
@@ -61,6 +62,12 @@ header {
   font-family: "Orbitron", system-ui, sans-serif;
   font-size: 21px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.brand-version {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.1;
   letter-spacing: 0.04em;
 }
 .brand-stat {
@@ -424,9 +431,10 @@ pre {
 <body>
 <header>
   <div class="bar">
-    <div class="brand" aria-label="StatLite">
+    <div class="brand">
       <img src="/static/statlite-icon.png" alt="" class="brand-icon">
       <span class="brand-wordmark"><span class="brand-stat">Stat</span><span class="brand-lite">Lite</span></span>
+      <span class="brand-version">{{dashboard_version}}</span>
     </div>
     <div class="range" role="group" aria-label="Time range">
       <button type="button" data-range="1h" class="active">1h</button>

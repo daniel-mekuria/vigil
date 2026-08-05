@@ -4,10 +4,12 @@ package server
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"strings"
 
 	"github.com/pvrlabs/statlite/internal/dashboard"
+	"github.com/pvrlabs/statlite/internal/version"
 )
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -17,5 +19,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, strings.ReplaceAll(dashboard.Page, "{{dashboard_script_url}}", dashboard.ScriptPath()))
+	page := strings.ReplaceAll(dashboard.Page, "{{dashboard_script_url}}", dashboard.ScriptPath())
+	page = strings.ReplaceAll(page, "{{dashboard_version}}", html.EscapeString(version.Version))
+	fmt.Fprint(w, page)
 }

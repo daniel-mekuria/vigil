@@ -44,6 +44,7 @@ func TestRootServesDashboardPage(t *testing.T) {
 		"/static/statlite-icon.png",
 		`<script src="` + dashboard.ScriptPath() + `" defer></script>`,
 		`<span class="brand-stat">Stat</span><span class="brand-lite">Lite</span>`,
+		`<span class="brand-version">` + version.Version + `</span>`,
 		"Current status",
 		`aria-label="Target"`,
 		`id="target-select"`,
@@ -64,6 +65,12 @@ func TestRootServesDashboardPage(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Fatalf("root page missing %q", want)
 		}
+	}
+	if strings.Contains(content, "{{dashboard_version}}") {
+		t.Fatal("root page retains dashboard version placeholder")
+	}
+	if strings.Contains(content, `<div class="brand" aria-label="StatLite">`) {
+		t.Fatal("root page keeps a redundant brand aria-label")
 	}
 	for _, legacy := range []string{"statlite-health", `case "statlite":`, "host_cpu_usage"} {
 		if strings.Contains(content, legacy) {
