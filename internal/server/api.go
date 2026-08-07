@@ -33,13 +33,7 @@ type SummaryResponse struct {
 }
 
 func (s *Server) handleDebugPollNow(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 
@@ -54,14 +48,7 @@ func (s *Server) handleDebugPollNow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDebugLatest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 	target := s.selectedTarget(r)
@@ -74,26 +61,14 @@ func (s *Server) handleDebugLatest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMonitorStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.selectedTarget(r).Monitor.Status())
 }
 
 func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 	target := s.selectedTarget(r)
@@ -127,13 +102,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLatest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 	target := s.selectedTarget(r)
@@ -146,13 +115,7 @@ func (s *Server) handleLatest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 
@@ -182,13 +145,7 @@ func (s *Server) handleSeries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if s.manager == nil {
-		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+	if !s.requireGETWithManager(w, r) {
 		return
 	}
 
@@ -216,6 +173,19 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, events)
+}
+
+func (s *Server) requireGETWithManager(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return false
+	}
+	if s.manager == nil {
+		http.Error(w, "monitor is not configured", http.StatusInternalServerError)
+		return false
+	}
+	return true
 }
 
 func writeJSON(w http.ResponseWriter, status int, value interface{}) {

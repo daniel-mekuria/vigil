@@ -14,22 +14,18 @@ import (
 )
 
 func (s *Store) LatestSnapshot(ctx context.Context, targetName string) (*Snapshot, error) {
-	if strings.TrimSpace(targetName) == "" {
-		return nil, fmt.Errorf("target name is required")
-	}
-
 	return s.latestSnapshot(ctx, targetName, "")
 }
 
 func (s *Store) LatestSuccessfulSnapshot(ctx context.Context, targetName string) (*Snapshot, error) {
-	if strings.TrimSpace(targetName) == "" {
-		return nil, fmt.Errorf("target name is required")
-	}
-
 	return s.latestSnapshot(ctx, targetName, "ok")
 }
 
 func (s *Store) latestSnapshot(ctx context.Context, targetName, status string) (*Snapshot, error) {
+	if strings.TrimSpace(targetName) == "" {
+		return nil, fmt.Errorf("target name is required")
+	}
+
 	statusFilter := ""
 	args := []interface{}{targetName}
 	if status != "" {
