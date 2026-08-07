@@ -94,3 +94,16 @@ Use `StatLite` for user-facing product prose. Use `statlite` for internal identi
 ## Writing Style
 
 Do not add em dashes to new or edited documentation or other user-facing prose.
+
+## Agent-Friendly CLI Usage
+
+Prefer low-noise tools when available on `PATH`.
+
+- Use `npm-lite` instead of `npm` for JavaScript workflows when the project
+  defines the supported `verify` or `test:unit` scripts.
+- If a command is excessively noisy, misleading, hard to parse, or otherwise
+  agent-unfriendly, report it with `agent-complaint`.
+- Do not run extra commands just to collect profiling data.
+- Do not include secrets, source code, sensitive paths, or large output in
+  complaints.
+- Run `agent-complaint --help` for usage.
