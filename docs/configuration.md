@@ -52,8 +52,8 @@ polling:
   timeout: "10s"
 ```
 
-* `interval` — how often each target is polled (Go duration, required).
-* `timeout` — per-poll HTTP timeout (Go duration; default `10s` if omitted).
+* `interval`: how often each target is polled (Go duration, required).
+* `timeout`: per-poll HTTP timeout (Go duration; default `10s` if omitted).
 
 ## Targets
 
@@ -179,13 +179,13 @@ Selected target and time range are stored in the query string, so you can bookma
 ## API notes
 
 * `/api/*` is early/internal and not yet a stable public API.
-* `/healthz` exposes process version and readiness. Monitored-target poll failures do not mark the process unhealthy; SQLite failure does (`status: "error"`, HTTP 503). See the README section on version and health.
+* `/healthz` exposes process version and readiness. Monitored-target poll failures do not mark the process unhealthy; SQLite failure does (`status: "error"`, HTTP 503).
 
 ## Example files
 
 | File | Purpose |
 |------|---------|
-| `statlite.yaml` (repo root) | Default Quick Start — monitors StatLite itself |
+| `statlite.yaml` (repo root) | Default Quick Start that monitors StatLite itself |
 | `examples/actuator.yaml` | Single Spring Boot Actuator target with Basic Auth placeholders |
 | `examples/statlite.yaml` | Monitor another StatLite instance with `statlite-metrics` |
 | `examples/multi-target.yaml` | Illustrative multi-target mix (Actuator + StatLite Metrics + self) |

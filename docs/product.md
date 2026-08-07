@@ -38,9 +38,9 @@ materially change the workload being observed.
 
 StatLite has two supported target types:
 
-* `spring` — Spring Boot Actuator and a fixed set of Micrometer metrics. This
+* `spring`: Spring Boot Actuator and a fixed set of Micrometer metrics. This
   is the default target type when `type` is omitted.
-* `statlite-metrics` — the canonical fixed `statlite-metrics/v1` integration
+* `statlite-metrics`: the canonical fixed `statlite-metrics/v1` integration
   for StatLite and external profile producers. See the
   [producer-facing specification](statlite-metrics-v1.md) for its endpoint
   contract.

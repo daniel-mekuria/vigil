@@ -53,13 +53,13 @@ Use SQLite through Go `database/sql`. Prefer `modernc.org/sqlite` unless there i
 
 ## Repository Shape
 
-* `cmd/statlite/main.go` — CLI entrypoint
-* `internal/config` — YAML config loading and validation
-* `internal/collector` — metric collection and normalization
-* `internal/storage` — SQLite persistence and query logic
-* `internal/server` — local HTTP server
-* `internal/dashboard` — dashboard rendering / chart data shaping
-* `internal/version` — central build version string
+* `cmd/statlite/main.go`: CLI entrypoint
+* `internal/config`: YAML config loading and validation
+* `internal/collector`: metric collection and normalization
+* `internal/storage`: SQLite persistence and query logic
+* `internal/server`: local HTTP server
+* `internal/dashboard`: dashboard rendering / chart data shaping
+* `internal/version`: central build version string
 
 ## Change Style
 
@@ -90,3 +90,7 @@ For large or ambiguous changes, propose the smallest independently testable slic
 ## Capitalization Convention
 
 Use `StatLite` for user-facing product prose. Use `statlite` for internal identifiers, package/module paths, binary names, config filenames, URLs, JSON fields, target type values, and command examples.
+
+## Writing Style
+
+Do not add em dashes to new or edited documentation or other user-facing prose.

@@ -68,11 +68,11 @@ individual metrics are optional.
 
 | Field | Type | Unit | Optional | Semantics |
 |---|---|---|---|---|
-| `schema` | string | — | No | Must be `statlite-metrics/v1`. |
-| `status` | string | — | No | Non-empty application health/status text. |
-| `database_status` | string | — | Yes | Non-empty status text for an application database dependency when the producer can safely determine it. StatLite self-monitoring emits `UP` or `DOWN` from a cached SQLite `PingContext` check, refreshed on startup and every 60 seconds; a closed local store reports `DOWN` immediately. |
+| `schema` | string | N/A | No | Must be `statlite-metrics/v1`. |
+| `status` | string | N/A | No | Non-empty application health/status text. |
+| `database_status` | string | N/A | Yes | Non-empty status text for an application database dependency when the producer can safely determine it. StatLite self-monitoring emits `UP` or `DOWN` from a cached SQLite `PingContext` check, refreshed on startup and every 60 seconds; a closed local store reports `DOWN` immediately. |
 | `started_at` | string | RFC 3339 timestamp | Yes | Process start time; recommended for restart detection. |
-| `metrics` | object | — | Yes | Container for the fixed application metric fields below. |
+| `metrics` | object | N/A | Yes | Container for the fixed application metric fields below. |
 | `metrics.requests_total` | number | requests | Yes | Monotonic request counter. |
 | `metrics.responses_404_total` | number | requests | Yes | Monotonic counter of HTTP 404 responses. |
 | `metrics.responses_4xx_total` | number | requests | Yes | Monotonic counter of HTTP 4xx responses, including 404 responses. |
