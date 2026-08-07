@@ -145,7 +145,8 @@ gh release view "${RELEASE_VERSION}" --json tagName,name,isDraft,isPrerelease,as
    `internal/version/version.go` on `main` to the next development version, for
    example `v0.1.1-dev` after releasing `v0.1.0`.
 7. Commit and push the `-dev` bump.
-8. Continue with installer and Homebrew verification for the release.
+8. Update and publish the Homebrew tap as described below, then complete the
+   installer and Homebrew verification for the release.
 
 The workflow is triggered by pushes of `v*` tags.
 
@@ -263,6 +264,39 @@ git switch main
 - The versioned container reports `statlite ${RELEASE_VERSION}` from `--version`.
 - An anonymous pull of `:latest` succeeds, and the image passes health, metrics,
   dashboard, and self-monitoring checks.
+
+## Publishing the Homebrew Tap
+
+The Homebrew formula is maintained in the separate `PVRLabs/homebrew-tap`
+repository. Update that repository independently after the GitHub Release assets
+are available.
+
+From the tap checkout, update `Formula/statlite.rb`:
+
+- Set `version` to `${RELEASE_VERSION#v}`.
+- Update the four `sha256` values from the matching GitHub Release archives.
+
+Then validate and publish the formula:
+
+```bash
+brew audit --formula Formula/statlite.rb
+brew test Formula/statlite.rb
+git diff --check
+git add Formula/statlite.rb
+git commit -m "statlite: update to ${RELEASE_VERSION#v}"
+git push origin main
+```
+
+Verify installation through the tap and confirm the binary reports the release
+version:
+
+```bash
+brew update
+brew upgrade pvrlabs/tap/statlite
+statlite --version
+```
+
+The output should be `statlite ${RELEASE_VERSION}`.
 
 ## Manual Fallback
 
