@@ -5,16 +5,11 @@ Detailed release notes are generated on GitHub from the commit history.
 
 ## Unreleased
 
-### Planned
-
-- Inline Chart.js so the dashboard does not depend on an external CDN.
-
 ## v0.2.2 — 2026-08-07
 
 - Added the StatLite version to the dashboard header.
 - Published multi-platform Docker images for `linux/amd64` and `linux/arm64`.
 - Improved Python integration documentation and examples.
-- Simplified repeated API guard handling internally.
 
 ## v0.2.1
 
