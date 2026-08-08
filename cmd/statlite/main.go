@@ -102,8 +102,8 @@ func startupMessage(listen string, targets int) string {
 func printHelp(w io.Writer) {
 	fmt.Fprintf(w, `StatLite - tiny self-hosted metrics dashboard for small servers.
 
-Polls Spring Boot Actuator (and StatLite self-health), stores samples in
-local SQLite, and serves a localhost dashboard.
+Polls Spring Boot Actuator and StatLite self-monitoring endpoints, stores
+samples in local SQLite, and serves a localhost dashboard.
 
 Usage:
   statlite [--config path]

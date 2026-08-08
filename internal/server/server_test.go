@@ -1961,18 +1961,16 @@ func TestParseRangeDefaultsToOneHour(t *testing.T) {
 }
 
 func TestParseRangeSupportsRolling24Hours(t *testing.T) {
-	for _, name := range []string{"24h", "today"} {
-		req := httptest.NewRequest(http.MethodGet, "/api/series?range="+name, nil)
-		start, end, dashRange, err := parseRange(req)
-		if err != nil {
-			t.Fatalf("parseRange(%s) error = %v", name, err)
-		}
-		if got := end.Sub(start); got != 24*time.Hour {
-			t.Fatalf("%s range = %v, want 24h", name, got)
-		}
-		if dashRange != DashboardRange24H {
-			t.Fatalf("%s DashboardRange = %q, want %q", name, dashRange, DashboardRange24H)
-		}
+	req := httptest.NewRequest(http.MethodGet, "/api/series?range=24h", nil)
+	start, end, dashRange, err := parseRange(req)
+	if err != nil {
+		t.Fatalf("parseRange(24h) error = %v", err)
+	}
+	if got := end.Sub(start); got != 24*time.Hour {
+		t.Fatalf("24h range = %v, want 24h", got)
+	}
+	if dashRange != DashboardRange24H {
+		t.Fatalf("DashboardRange = %q, want %q", dashRange, DashboardRange24H)
 	}
 }
 
@@ -1998,11 +1996,13 @@ func TestParseRangeSupports7dAnd30d(t *testing.T) {
 	}
 }
 
-func TestParseRangeErrorsOnInvalid(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/series?range=bad", nil)
-	_, _, _, err := parseRange(req)
-	if err == nil {
-		t.Fatal("parseRange(bad) error = nil, want error")
+func TestParseRangeRejectsUnsupportedRanges(t *testing.T) {
+	for _, value := range []string{"bad", "today"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/series?range="+value, nil)
+		_, _, _, err := parseRange(req)
+		if err == nil {
+			t.Fatalf("parseRange(%s) error = nil, want error", value)
+		}
 	}
 }
 

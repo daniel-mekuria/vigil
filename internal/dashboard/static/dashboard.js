@@ -109,7 +109,7 @@ function buildCharts() {
       { label: "RAM total", unit: "gb", data: [], borderColor: palette.total, ...lineStyle, yAxisID: "y", tension: 0.25, spanGaps: false },
       { label: "Host CPU", unit: "percent", data: [], borderColor: palette.cpu, ...lineStyle, yAxisID: "y1", tension: 0.25, spanGaps: false }
     ] },
-    options: hostRuntimeOptions()
+    options: resourceOptions()
   });
   state.charts.hostDisk = resourceChart("host-disk-chart", "Disk");
 }
@@ -150,13 +150,6 @@ function runtimeOptions() {
     y: { beginAtZero: true, position: "left", title: { display: true, text: "MB", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { color: palette.grid } },
     y1: { beginAtZero: true, position: "right", title: { display: true, text: "%", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
   };
-  options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.unit);
-  return options;
-}
-
-function hostRuntimeOptions() {
-  const options = resourceOptions();
-  options.scales.y.title.text = "GB";
   return options;
 }
 
@@ -167,7 +160,6 @@ function resourceOptions() {
     y: { beginAtZero: true, position: "left", title: { display: true, text: "GB", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { color: palette.grid } },
     y1: { beginAtZero: true, max: 100, position: "right", title: { display: true, text: "%", color: palette.ticks }, ticks: { color: palette.ticks }, grid: { drawOnChartArea: false } }
   };
-  options.plugins.tooltip.callbacks.label = (ctx) => ctx.dataset.label + ": " + formatValue(ctx.parsed.y, ctx.dataset.unit);
   return options;
 }
 
@@ -230,7 +222,6 @@ function renderSummary(summary) {
   const monitor = summary.monitor || {};
   const selected = summary.selected_target || {};
   const targets = summary.targets || [];
-  state.target = selected.name || state.target;
   renderTargetContext(targets, selected);
   setPill("health", result.health_status);
   setPill("db-health", result.db_health_status);
@@ -421,7 +412,7 @@ function renderEvents(events) {
     root.innerHTML = '<div class="empty">No recent events</div>';
     return;
   }
-  events.slice(0, 20).forEach((event) => {
+  events.forEach((event) => {
     const row = document.createElement("div");
     row.className = "event";
     row.innerHTML = '<div class="event-time"></div><div class="event-kind"></div><div class="event-message"></div>';
@@ -545,7 +536,6 @@ function initializeFromURL() {
   const target = params.get("target");
   const range = params.get("range");
   if (target) state.target = target;
-  if (range === "today") state.range = "24h";
   if (["1h", "24h", "7d", "30d"].includes(range)) state.range = range;
   document.querySelectorAll("[data-range]").forEach((button) => {
     button.classList.toggle("active", button.dataset.range === state.range);

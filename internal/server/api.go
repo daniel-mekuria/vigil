@@ -47,19 +47,6 @@ func (s *Server) handleDebugPollNow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, snapshot)
 }
 
-func (s *Server) handleDebugLatest(w http.ResponseWriter, r *http.Request) {
-	if !s.requireGETWithManager(w, r) {
-		return
-	}
-	target := s.selectedTarget(r)
-	latest := target.Monitor.LatestSnapshot()
-	if latest == nil {
-		http.Error(w, fmt.Sprintf("no poll has run yet for target %q", target.Metadata.Name), http.StatusNotFound)
-		return
-	}
-	writeJSON(w, http.StatusOK, latest)
-}
-
 func (s *Server) handleMonitorStatus(w http.ResponseWriter, r *http.Request) {
 	if !s.requireGETWithManager(w, r) {
 		return

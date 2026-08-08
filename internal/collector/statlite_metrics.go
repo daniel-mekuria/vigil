@@ -29,7 +29,6 @@ type StatliteMetricsResponse struct {
 	DatabaseStatus StatliteMetricsField   `json:"database_status,omitempty"`
 	StartedAt      StatliteMetricsField   `json:"started_at,omitempty"`
 	Metrics        *StatliteMetricsValues `json:"metrics,omitempty"`
-	Raw            json.RawMessage        `json:"raw,omitempty"`
 }
 
 type StatliteMetricsValues struct {
@@ -126,7 +125,6 @@ func (c *StatliteMetricsClient) Fetch(ctx context.Context) (*StatliteMetricsResp
 		return nil, fmt.Errorf("statlite metrics response missing required status")
 	}
 
-	metrics.Raw = append(metrics.Raw[:0], body...)
 	return &metrics, nil
 }
 

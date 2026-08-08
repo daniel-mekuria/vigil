@@ -78,7 +78,7 @@ func parseRange(r *http.Request) (time.Time, time.Time, DashboardRange, error) {
 	switch strings.ToLower(strings.TrimSpace(query.Get("range"))) {
 	case "", "1h", "last_hour":
 		return now.Add(-time.Hour), now, DashboardRange1H, nil
-	case "24h", "today":
+	case "24h":
 		return now.Add(-24 * time.Hour), now, DashboardRange24H, nil
 	case "7d":
 		return now.AddDate(0, 0, -7), now, DashboardRange7D, nil

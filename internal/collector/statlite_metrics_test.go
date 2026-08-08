@@ -96,9 +96,6 @@ func TestStatliteMetricsClientFetchesCompleteV1Response(t *testing.T) {
 			t.Errorf("%s is absent, want present", name)
 		}
 	}
-	if len(response.Raw) == 0 {
-		t.Fatal("Raw is empty, want response body")
-	}
 }
 
 func TestStatliteMetricsClientAcceptsMinimalResponse(t *testing.T) {

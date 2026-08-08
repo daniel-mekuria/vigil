@@ -115,7 +115,7 @@ func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.
 	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/monitor/status", s.handleMonitorStatus)
 	mux.HandleFunc("/debug/poll-now", s.handleDebugPollNow)
-	mux.HandleFunc("/debug/latest", s.handleDebugLatest)
+	mux.HandleFunc("/debug/latest", s.handleLatest)
 
 	s.httpServer = &http.Server{
 		Addr:         listen,
