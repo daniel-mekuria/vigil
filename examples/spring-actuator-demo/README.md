@@ -72,7 +72,9 @@ Then generate traffic:
 ./generate-traffic.sh
 ```
 
-StatLite polls every 10 seconds, so you may need to wait until the next polling cycle before the charts update.
+StatLite polls every 10 seconds so this local demo updates quickly. Use a
+30-second or longer interval for production. You may need to wait until the
+next polling cycle before the charts update.
 
 The dashboard should show:
 

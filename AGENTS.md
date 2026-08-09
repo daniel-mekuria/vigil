@@ -17,6 +17,11 @@ User-facing docs: `README.md`, `docs/configuration.md`. Install and release docs
 
 * Prefer maintainability and simplicity over feature breadth.
 * Keep the binary and runtime footprint small.
+* Treat memory, CPU, disk growth, network activity, goroutine count, and
+  response cardinality as product constraints, not after-the-fact tuning.
+* Choose conservative defaults for production-capable configurations. Faster
+  polling or higher-cardinality behavior belongs only in clearly labeled demos
+  or behind explicit user configuration.
 * Prefer boring, explicit Go code over framework-heavy abstractions.
 * Keep Spring Boot / Actuator details inside collector-facing code where practical.
 * Keep storage/query/dashboard code based on normalized internal data, not raw Actuator response shapes.
@@ -66,6 +71,8 @@ Use SQLite through Go `database/sql`. Prefer `modernc.org/sqlite` unless there i
 For implementation work:
 
 * make the smallest useful change
+* consider the resource impact of changes to polling, storage, queries,
+  collectors, dependencies, and deployment defaults
 * keep package boundaries clear
 * add tests where logic can regress
 * avoid speculative abstractions

@@ -5,6 +5,7 @@ storage:
   sqlite_path: "./statlite-fastapi-demo.sqlite"
 
 polling:
+  # Short interval for a responsive local demo. Use 30s or longer in production.
   interval: "10s"
   timeout: "5s"
 

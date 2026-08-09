@@ -6,7 +6,7 @@ storage:
   sqlite_path: "./statlite.sqlite"
 
 polling:
-  interval: "5m"
+  interval: "30s"
   timeout: "10s"
 
 targets:

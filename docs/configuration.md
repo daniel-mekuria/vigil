@@ -48,12 +48,16 @@ Set `retention_days: 0` to disable cleanup and keep history indefinitely. Existi
 
 ```yaml
 polling:
-  interval: "5m"
+  interval: "30s"
   timeout: "10s"
 ```
 
 * `interval`: how often each target is polled (Go duration, required).
 * `timeout`: per-poll HTTP timeout (Go duration; default `10s` if omitted).
+
+Use `30s` or longer for production deployments. Shorter intervals increase
+HTTP requests, SQLite writes, and database growth, and are best reserved for
+explicitly labeled local demos.
 
 ## Targets
 

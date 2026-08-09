@@ -19,7 +19,9 @@ monitors StatLite itself through `statlite-metrics`; no configuration file is
 required.
 
 > [!NOTE]
-> The first metrics sample may take up to one polling interval to appear.
+> The bundled configuration polls every 30 seconds, a production-sensible
+> default that limits HTTP requests, SQLite writes, and database growth. The
+> first metrics sample may take up to one polling interval to appear.
 
 The container stores SQLite data at `/data/statlite.sqlite`. Data is ephemeral
 unless `/data` is mounted to persistent storage.

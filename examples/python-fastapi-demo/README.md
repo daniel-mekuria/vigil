@@ -96,8 +96,9 @@ go run ./cmd/statlite --config examples/python-fastapi-demo/statlite.yaml
 ```
 
 Open the dashboard at <http://127.0.0.1:9091>. StatLite polls the FastAPI
-endpoint every 10 seconds. The SQLite file is created in the current working
-directory.
+endpoint every 10 seconds so this local demo updates quickly. Use a 30-second
+or longer interval for production. The SQLite file is created in the current
+working directory.
 
 ## Metric semantics
 

@@ -31,8 +31,11 @@ fixed integration boundaries, and a local-first dashboard.
 
 StatLite must remain inexpensive enough to run on the small applications and
 servers it monitors. New dependencies, background work, and sampling behavior
-should be evaluated for their memory and CPU cost; monitoring should not
-materially change the workload being observed.
+should be evaluated for their memory, CPU, disk, and network cost. Queries and
+API responses should remain bounded as retained history grows. Production
+defaults should favor a small steady-state footprint; faster local-demo
+settings must be clearly labeled. Monitoring should not materially change the
+workload being observed.
 
 ## Supported integration boundaries
 
