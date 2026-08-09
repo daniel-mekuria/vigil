@@ -34,8 +34,7 @@ function attachInteractions() {
   document.querySelectorAll("[data-range]").forEach((button) => {
     button.addEventListener("click", () => {
       state.range = button.dataset.range;
-      document.querySelectorAll("[data-range]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
+      renderRangeSelection();
       updateURL();
       refresh();
     });
@@ -66,6 +65,14 @@ function attachInteractions() {
     if (event.key === "Escape") {
       document.querySelectorAll(".help.open").forEach(closeHelp);
     }
+  });
+}
+
+function renderRangeSelection() {
+  document.querySelectorAll("[data-range]").forEach((button) => {
+    const active = button.dataset.range === state.range;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   });
 }
 
@@ -347,8 +354,6 @@ function renderSeries(series) {
   setNote("requests-note", capabilities.requests);
   setNote("errors-note", capabilities.errors);
   setNote("latency-note", capabilities.latency);
-  setNote("runtime-note", capabilities.process);
-  setNote("host-runtime-note", capabilities.hostCPU || capabilities.hostMemory);
   setCurrentResourceNote("host-disk-note", series.current_host_disk, "Disk");
 }
 
@@ -537,19 +542,23 @@ function initializeFromURL() {
   const range = params.get("range");
   if (target) state.target = target;
   if (["1h", "24h", "7d", "30d"].includes(range)) state.range = range;
-  document.querySelectorAll("[data-range]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.range === state.range);
-  });
+  renderRangeSelection();
+}
+
+function refreshWhenVisible() {
+  if (document.hidden) return;
+  return refresh();
 }
 
 function initDashboard() {
   attachInteractions();
   initializeFromURL();
   buildCharts();
-  refresh();
-  setInterval(refresh, 30000);
+  document.addEventListener("visibilitychange", refreshWhenVisible);
+  refreshWhenVisible();
+  setInterval(refreshWhenVisible, 30000);
 }
 
-const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, renderPollStatus, renderSeries, shouldRenderSeries, state, targetTypeHelp, validDiskPoint };
+const dashboardTestHooks = { detectCapabilities, formatBytes, formatCurrentResource, formatValue, initDashboard, refresh, refreshWhenVisible, renderPollStatus, renderRangeSelection, renderSeries, shouldRenderSeries, state, targetTypeHelp, validDiskPoint };
 if (typeof module !== "undefined" && module.exports) module.exports = dashboardTestHooks;
 if (typeof document !== "undefined") initDashboard();

@@ -437,10 +437,10 @@ pre {
       <span class="brand-version">{{dashboard_version}}</span>
     </div>
     <div class="range" role="group" aria-label="Time range">
-      <button type="button" data-range="1h" class="active">1h</button>
-      <button type="button" data-range="24h">24h</button>
-      <button type="button" data-range="7d">7d</button>
-      <button type="button" data-range="30d">30d</button>
+      <button type="button" data-range="1h" class="active" aria-pressed="true">1h</button>
+      <button type="button" data-range="24h" aria-pressed="false">24h</button>
+      <button type="button" data-range="7d" aria-pressed="false">7d</button>
+      <button type="button" data-range="30d" aria-pressed="false">30d</button>
     </div>
   </div>
 </header>
@@ -486,7 +486,7 @@ pre {
       <div class="canvas-wrap"><canvas id="latency-chart"></canvas></div>
     </div>
     <div id="process-section" class="chart">
-      <div class="chart-head"><h2 class="label-help">Process runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2><div id="runtime-note" class="note"></div></div>
+      <div class="chart-head"><h2 class="label-help">Process runtime <button type="button" class="help" aria-label="Runtime help" aria-expanded="false">i</button><span id="runtime-tooltip" class="tooltip" role="tooltip">Process CPU usage and current managed runtime heap or allocator usage.</span></h2></div>
       <div class="canvas-wrap"><canvas id="runtime-chart"></canvas></div>
     </div>
     </div>
@@ -496,7 +496,7 @@ pre {
     <h2 id="host-heading">Host resources</h2>
     <div class="chart-grid">
       <div id="host-runtime-chart-card" class="chart">
-        <div class="chart-head"><h2 class="label-help">Host runtime <button type="button" class="help" aria-label="Host runtime help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Current and total host RAM, with CPU usage across the capacity visible to StatLite.</span></h2><div id="host-runtime-note" class="note"></div></div>
+        <div class="chart-head"><h2 class="label-help">Host runtime <button type="button" class="help" aria-label="Host runtime help" aria-expanded="false">i</button><span class="tooltip" role="tooltip">Current and total host RAM, with CPU usage across the capacity visible to StatLite.</span></h2></div>
         <div class="canvas-wrap"><canvas id="host-runtime-chart"></canvas></div>
       </div>
       <div id="host-disk-chart-card" class="chart">

@@ -21,6 +21,32 @@ test("periodic refresh keeps charts for a transient empty series", () => {
   assert.equal(dashboard.shouldRenderSeries("?target=app&range=1h", { points: [{}] }), true);
 });
 
+test("range selection synchronizes visual and accessible state", () => {
+  const originalDocument = global.document;
+  const buttons = [rangeButton("1h"), rangeButton("24h"), rangeButton("7d"), rangeButton("30d")];
+  global.document = { querySelectorAll: () => buttons };
+  dashboard.state.range = "7d";
+
+  try {
+    dashboard.renderRangeSelection();
+    assert.deepEqual(buttons.map((button) => button.active), [false, false, true, false]);
+    assert.deepEqual(buttons.map((button) => button.attributes["aria-pressed"]), ["false", "false", "true", "false"]);
+  } finally {
+    global.document = originalDocument;
+  }
+});
+
+test("hidden dashboards skip periodic refresh work", () => {
+  const originalDocument = global.document;
+  global.document = { hidden: true };
+
+  try {
+    assert.equal(dashboard.refreshWhenVisible(), undefined);
+  } finally {
+    global.document = originalDocument;
+  }
+});
+
 test("detectCapabilities keeps sparse memory but requires a valid disk pair", () => {
   const sparseMemory = dashboard.detectCapabilities([{ host_memory_used_bytes: 10 }]);
   assert.equal(sparseMemory.host, true);
@@ -175,6 +201,17 @@ test("stale refresh responses cannot replace the current target", async () => {
 function chartStubs() {
   const chart = (datasets) => ({ data: { labels: [], datasets: Array.from({ length: datasets }, () => ({ data: [] })) }, update() {} });
   return { requests: chart(1), errors: chart(3), latency: chart(1), runtime: chart(2), hostRuntime: chart(3), hostDisk: chart(3) };
+}
+
+function rangeButton(range) {
+  const button = {
+    active: false,
+    attributes: {},
+    dataset: { range },
+    classList: { toggle(_name, active) { button.active = active; } },
+    setAttribute(name, value) { this.attributes[name] = value; }
+  };
+  return button;
 }
 
 function dashboardDocument() {
