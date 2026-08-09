@@ -196,6 +196,52 @@ func TestSeriesComputesCounterDeltasAndAverageLatency(t *testing.T) {
 	assertFloatPointer(t, "ProcessCPUUsage", point.ProcessCPUUsage, 0.2)
 }
 
+func TestSeriesUsesLatestPreRangeSampleForEachCounter(t *testing.T) {
+	store := openTestStore(t)
+	defer store.Close()
+
+	ctx := context.Background()
+	runStart := time.Date(2026, 7, 7, 9, 0, 0, 0, time.UTC)
+	appRunID, err := store.EnsureAppRun(ctx, "app", &runStart, runStart)
+	if err != nil {
+		t.Fatalf("EnsureAppRun() error = %v", err)
+	}
+
+	firstPoll := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
+	saveSeriesPoll(t, store, appRunID, firstPoll, map[string]float64{
+		"http_requests_total":             100,
+		"http_404_total":                  1,
+		"http_4xx_total":                  3,
+		"http_5xx_total":                  0,
+		"http_request_time_total_seconds": 20,
+	})
+	saveSeriesPoll(t, store, appRunID, firstPoll.Add(time.Minute), map[string]float64{
+		"process_cpu_usage": 0.1,
+	})
+	saveSeriesPoll(t, store, appRunID, firstPoll.Add(2*time.Minute), map[string]float64{
+		"http_requests_total":             125,
+		"http_404_total":                  2,
+		"http_4xx_total":                  5,
+		"http_5xx_total":                  1,
+		"http_request_time_total_seconds": 25,
+	})
+
+	start := firstPoll.Add(2 * time.Minute)
+	series, err := store.Series(ctx, "app", start, start.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("Series() error = %v", err)
+	}
+	if len(series.Points) != 1 {
+		t.Fatalf("series points len = %d, want 1", len(series.Points))
+	}
+	point := series.Points[0]
+	assertFloatPointer(t, "Requests", point.Requests, 25)
+	assertFloatPointer(t, "HTTP404", point.HTTP404, 1)
+	assertFloatPointer(t, "HTTP4xx", point.HTTP4xx, 2)
+	assertFloatPointer(t, "HTTP5xx", point.HTTP5xx, 1)
+	assertFloatPointer(t, "AverageLatencySeconds", point.AverageLatencySeconds, 0.2)
+}
+
 func TestSeriesResolvesRuntimeMemoryPerPoll(t *testing.T) {
 	store := openTestStore(t)
 	defer store.Close()

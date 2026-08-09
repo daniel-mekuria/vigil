@@ -20,12 +20,14 @@ func (s *Store) Series(ctx context.Context, targetName string, start, end time.T
 		return nil, fmt.Errorf("series start must be before end")
 	}
 
-	keys := []string{
+	counterKeys := []string{
 		"http_requests_total",
 		"http_404_total",
 		"http_4xx_total",
 		"http_5xx_total",
 		"http_request_time_total_seconds",
+	}
+	keys := append(counterKeys, []string{
 		"runtime_heap_used_bytes",
 		"jvm_heap_used_bytes",
 		"process_cpu_usage",
@@ -34,6 +36,10 @@ func (s *Store) Series(ctx context.Context, targetName string, start, end time.T
 		"host_memory_total_bytes",
 		"host_disk_used_bytes",
 		"host_disk_total_bytes",
+	}...)
+	previous, err := s.previousCounterValues(ctx, targetName, start, counterKeys)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
@@ -47,17 +53,17 @@ FROM polls p
 JOIN targets t ON t.id = p.target_id
 JOIN metric_samples ms ON ms.poll_id = p.id
 WHERE t.name = ?
+  AND p.started_at >= ?
   AND p.started_at <= ?
   AND ms.metric_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ORDER BY p.started_at ASC, p.id ASC, ms.metric_key ASC
-`, targetName, formatTime(end), keys[0], keys[1], keys[2], keys[3], keys[4], keys[5], keys[6], keys[7], keys[8], keys[9], keys[10], keys[11], keys[12])
+`, targetName, formatTime(start), formatTime(end), keys[0], keys[1], keys[2], keys[3], keys[4], keys[5], keys[6], keys[7], keys[8], keys[9], keys[10], keys[11], keys[12])
 	if err != nil {
 		return nil, fmt.Errorf("query series samples: %w", err)
 	}
 	defer rows.Close()
 
 	series := &Series{Start: start.UTC(), End: end.UTC()}
-	previous := make(map[string]counterValue)
 	var current *pollSamples
 	flush := func() error {
 		if current == nil {
@@ -106,6 +112,39 @@ ORDER BY p.started_at ASC, p.id ASC, ms.metric_key ASC
 	setCurrentHostDisk(series)
 
 	return series, nil
+}
+
+func (s *Store) previousCounterValues(ctx context.Context, targetName string, start time.Time, keys []string) (map[string]counterValue, error) {
+	previous := make(map[string]counterValue, len(keys))
+	for _, key := range keys {
+		var appRunID sql.NullInt64
+		var value float64
+		err := s.db.QueryRowContext(ctx, `
+SELECT p.app_run_id, ms.value
+FROM polls p
+JOIN targets t ON t.id = p.target_id
+JOIN metric_samples ms ON ms.poll_id = p.id
+WHERE t.name = ?
+  AND p.started_at < ?
+  AND ms.metric_key = ?
+  AND ms.metric_kind = ?
+ORDER BY p.started_at DESC, p.id DESC
+LIMIT 1
+`, targetName, formatTime(start), key, collector.MetricKindCounter).Scan(&appRunID, &value)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				continue
+			}
+			return nil, fmt.Errorf("query previous series sample %q: %w", key, err)
+		}
+		counter := counterValue{value: value}
+		if appRunID.Valid {
+			id := appRunID.Int64
+			counter.appRunID = &id
+		}
+		previous[key] = counter
+	}
+	return previous, nil
 }
 
 func setCurrentHostDisk(series *Series) {
