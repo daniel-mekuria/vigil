@@ -42,7 +42,7 @@ function lint() {
 
 function test() {
     echo -e "${GREEN}==> Running Go tests...${NC}"
-    (cd "${SCRIPT_DIR}" && go test -v ./...)
+    (cd "${SCRIPT_DIR}" && go test ./...)
 }
 
 function build() {

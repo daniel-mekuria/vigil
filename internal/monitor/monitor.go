@@ -99,6 +99,9 @@ func (m *Monitor) PollNow(ctx context.Context) (*storage.Snapshot, error) {
 			PollFinishedAt: now,
 			Events:         []collector.CollectorEvent{{Severity: collector.EventSeverityError, Type: "collector_failed", Message: "collector returned no result"}},
 		}
+		if collectErr == nil {
+			collectErr = errors.New("collector returned no result")
+		}
 	}
 
 	var appRunID *int64

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -78,6 +79,56 @@ func TestPollNowDetectsRestartWhenProcessStartTimeChanges(t *testing.T) {
 	}
 	if !hasEvent(second.Result.Events, EventTypeRestartDetected) {
 		t.Fatalf("events = %#v, want %s", second.Result.Events, EventTypeRestartDetected)
+	}
+}
+
+func TestPollNowDetectsRestartAfterMonitorRecreation(t *testing.T) {
+	store := openTestStore(t)
+	defer store.Close()
+
+	firstStart := time.Date(2026, 7, 7, 9, 0, 0, 0, time.UTC)
+	first := newTestMonitor(t, store, &sequenceCollector{results: []collectResult{
+		{result: successfulResult(firstStart, 100, 10)},
+	}})
+	firstSnapshot, err := first.PollNow(context.Background())
+	if err != nil {
+		t.Fatalf("first PollNow() error = %v", err)
+	}
+
+	secondStart := firstStart.Add(time.Hour)
+	recreated := newTestMonitor(t, store, &sequenceCollector{results: []collectResult{
+		{result: successfulResult(secondStart, 2, 0.2)},
+	}})
+	secondSnapshot, err := recreated.PollNow(context.Background())
+	if err != nil {
+		t.Fatalf("recreated PollNow() error = %v", err)
+	}
+
+	if firstSnapshot.AppRunID == nil || secondSnapshot.AppRunID == nil {
+		t.Fatalf("app run ids = %v, %v; want both set", firstSnapshot.AppRunID, secondSnapshot.AppRunID)
+	}
+	if *firstSnapshot.AppRunID == *secondSnapshot.AppRunID {
+		t.Fatalf("recreated monitor kept app run %d after process start changed", *secondSnapshot.AppRunID)
+	}
+	if !hasEvent(secondSnapshot.Result.Events, EventTypeRestartDetected) {
+		t.Fatalf("events = %#v, want %s", secondSnapshot.Result.Events, EventTypeRestartDetected)
+	}
+}
+
+func TestPollNowRejectsNilCollectorResult(t *testing.T) {
+	store := openTestStore(t)
+	defer store.Close()
+
+	mon := newTestMonitor(t, store, &sequenceCollector{results: []collectResult{{}}})
+	snapshot, err := mon.PollNow(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "collector returned no result") {
+		t.Fatalf("PollNow() error = %v, want missing result error", err)
+	}
+	if snapshot == nil || snapshot.Status != "error" {
+		t.Fatalf("PollNow() snapshot = %#v, want stored error poll", snapshot)
+	}
+	if !hasEvent(snapshot.Result.Events, "collector_failed") {
+		t.Fatalf("events = %#v, want collector_failed", snapshot.Result.Events)
 	}
 }
 

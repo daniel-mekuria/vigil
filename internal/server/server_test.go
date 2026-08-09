@@ -1388,7 +1388,7 @@ func TestDashboardBucketDurationPolicy(t *testing.T) {
 }
 
 func TestHandleSeriesAggregatesDense7dWithScale(t *testing.T) {
-	// Dense 7d history with 15-minute samples → 30-minute buckets, ~≤336 points.
+	// Dense 7d history with 25-minute samples → 30-minute buckets, ~≤336 points.
 	store, err := storage.Open(t.Context(), t.TempDir()+"/statlite.sqlite")
 	if err != nil {
 		t.Fatalf("storage.Open() error = %v", err)
@@ -1402,8 +1402,8 @@ func TestHandleSeriesAggregatesDense7dWithScale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureAppRun() error = %v", err)
 	}
-	// Every 15 minutes for 7d ≈ 673 raw points: two samples per bucket.
-	step := 15 * time.Minute
+	// More than 336 raw points proves the 30-minute scale bounds the result.
+	step := 25 * time.Minute
 	raw := 0
 	for at := start; !at.After(end); at = at.Add(step) {
 		saveServerRetentionPoll(t, store, appRunID, at, float64(raw+1), nil)
@@ -1499,9 +1499,9 @@ func TestHandleSeriesKeepsDense1hResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureAppRun() error = %v", err)
 	}
-	// Multiple samples per minute.
+	// Two samples per minute.
 	raw := 0
-	for at := start; !at.After(end); at = at.Add(15 * time.Second) {
+	for at := start; !at.After(end); at = at.Add(30 * time.Second) {
 		saveServerRetentionPoll(t, store, appRunID, at, float64(raw+1), nil)
 		raw++
 	}
