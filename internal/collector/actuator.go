@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const actuatorMaxResponseBytes = 1 << 20
+
 type BasicAuth struct {
 	Username string
 	Password string
@@ -177,9 +179,12 @@ func (c *ActuatorClient) fetch(ctx context.Context, endpointPath string, query u
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, actuatorMaxResponseBytes+1))
 	if err != nil {
 		return nil, 0, fmt.Errorf("reading actuator %s response: %w", endpointPath, err)
+	}
+	if len(body) > actuatorMaxResponseBytes {
+		return nil, 0, fmt.Errorf("actuator %s response exceeds %d byte limit", endpointPath, actuatorMaxResponseBytes)
 	}
 	return body, resp.StatusCode, nil
 }

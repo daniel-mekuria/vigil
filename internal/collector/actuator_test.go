@@ -194,3 +194,51 @@ func TestActuatorClientReturnsMalformedJSONError(t *testing.T) {
 		t.Fatalf("FetchHealth() error = %q, want parsing context", err)
 	}
 }
+
+func TestActuatorClientEnforcesResponseSizeLimit(t *testing.T) {
+	validJSON := `{"status":"UP"}`
+	tests := []struct {
+		name    string
+		size    int
+		wantErr bool
+	}{
+		{name: "exact limit", size: actuatorMaxResponseBytes},
+		{name: "limit plus one", size: actuatorMaxResponseBytes + 1, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := validJSON + strings.Repeat(" ", tt.size-len(validJSON))
+			if len(body) != tt.size {
+				t.Fatalf("body size = %d, want %d", len(body), tt.size)
+			}
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(body))
+			}))
+			defer server.Close()
+
+			client, err := NewActuatorClient(server.URL, time.Second, nil)
+			if err != nil {
+				t.Fatalf("NewActuatorClient() error = %v", err)
+			}
+
+			health, err := client.FetchHealth(context.Background())
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("FetchHealth() error = nil, want response-size error")
+				}
+				if !strings.Contains(err.Error(), "response exceeds 1048576 byte limit") {
+					t.Fatalf("FetchHealth() error = %q, want response-size context", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("FetchHealth() error = %v", err)
+			}
+			if health.Status != "UP" {
+				t.Fatalf("health status = %q, want UP", health.Status)
+			}
+		})
+	}
+}
