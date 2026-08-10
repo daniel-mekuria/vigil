@@ -45,6 +45,7 @@ if [ "$COMMIT_COUNT" -eq 0 ]; then
   if [ -n "$PREV_TAG" ]; then
     echo "**Full Changelog**: https://github.com/PVRLabs/statlite/compare/${PREV_TAG}...${NEW_TAG}"
   fi
+  echo "**Release Changelog**: https://github.com/PVRLabs/statlite/blob/${NEW_TAG}/CHANGELOG.md"
   exit 0
 fi
 
@@ -91,3 +92,5 @@ fi
 if [ -n "$PREV_TAG" ]; then
   echo "**Full Changelog**: https://github.com/PVRLabs/statlite/compare/${PREV_TAG}...${NEW_TAG}"
 fi
+
+echo "**Release Changelog**: https://github.com/PVRLabs/statlite/blob/${NEW_TAG}/CHANGELOG.md"
