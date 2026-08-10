@@ -15,8 +15,10 @@ The release workflow builds archives for:
 - Linux `amd64`
 - Linux `arm64`
 
-Each artifact is a `.tar.gz` containing the `statlite` binary and a matching
-`.sha256` file. Windows artifacts are not part of the initial release.
+Each artifact is a `.tar.gz` containing the `statlite` binary, standalone
+third-party dashboard license notices, and a matching `.sha256` file. The
+dashboard assets are embedded in the binary; container images do not include
+separate license files. Windows artifacts are not part of the initial release.
 
 Archive names use this pattern:
 
@@ -56,22 +58,23 @@ a dashboard metrics endpoint.
 RELEASE_VERSION=vX.Y.Z
 ```
 
-2. Confirm `internal/version/version.go` on `main` contains a `-dev` version.
-3. Run the Go and dashboard JavaScript test suites:
+2. Update `CHANGELOG.md` with the main user-facing changes for the release.
+3. Confirm `internal/version/version.go` on `main` contains a `-dev` version.
+4. Run the Go and dashboard JavaScript test suites:
 
 ```bash
 go test ./...
 node --test internal/dashboard/static/dashboard.test.js
 ```
 
-4. Build a local release-style binary and confirm the version override:
+5. Build a local release-style binary and confirm the version override:
 
 ```bash
 go build -trimpath -ldflags="-s -w -X github.com/pvrlabs/statlite/internal/version.Version=${RELEASE_VERSION}" -o statlite ./cmd/statlite
 ./statlite --version
 ```
 
-5. Review `.github/workflows/release.yml` if archive names, platforms, or the
+6. Review `.github/workflows/release.yml` if archive names, platforms, or the
    binary path changed.
 
 ## Operator Authentication

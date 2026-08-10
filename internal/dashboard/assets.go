@@ -18,9 +18,24 @@ var Script string
 // ScriptPath is content-addressed so a binary upgrade can safely use immutable
 // browser caching without leaving the dashboard paired with an old script.
 func ScriptPath() string {
-	sum := sha256.Sum256([]byte(Script))
-	return fmt.Sprintf("/static/dashboard.%x.js", sum[:8])
+	return contentPath("/static/dashboard", []byte(Script), ".js")
 }
 
 //go:embed static/statlite-icon.png
 var StatliteIconPNG []byte
+
+//go:embed static/vendor/chart.4.4.8.min.js
+var ChartJS []byte
+
+//go:embed static/fonts/orbitron-2.001-700.woff2
+var OrbitronFontWoff2 []byte
+
+const (
+	ChartJSPath      = "/static/vendor/chart.4.4.8.min.js"
+	OrbitronFontPath = "/static/fonts/orbitron-2.001-700.woff2"
+)
+
+func contentPath(prefix string, content []byte, suffix string) string {
+	sum := sha256.Sum256(content)
+	return fmt.Sprintf("%s.%x%s", prefix, sum[:8], suffix)
+}

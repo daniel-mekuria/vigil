@@ -107,6 +107,8 @@ func NewWithManagerRetentionCutoffAndFilesystem(listen string, manager *monitor.
 	mux.HandleFunc("/", s.handleRoot)
 	mux.HandleFunc(dashboard.ScriptPath(), s.handleDashboardScript)
 	mux.HandleFunc("/static/statlite-icon.png", s.handleStatliteIcon)
+	mux.HandleFunc(dashboard.ChartJSPath, s.handleDashboardVendor)
+	mux.HandleFunc(dashboard.OrbitronFontPath, s.handleDashboardVendor)
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/statlite/metrics", s.handleStatliteMetrics)
 	mux.HandleFunc("/api/summary", s.handleSummary)

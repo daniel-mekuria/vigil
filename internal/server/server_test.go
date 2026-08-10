@@ -40,7 +40,8 @@ func TestRootServesDashboardPage(t *testing.T) {
 	}
 	content := string(body)
 	for _, want := range []string{
-		"cdn.jsdelivr.net/npm/chart.js",
+		`<script src="` + dashboard.ChartJSPath + `"></script>`,
+		`url("` + dashboard.OrbitronFontPath + `")`,
 		"/static/statlite-icon.png",
 		`<script src="` + dashboard.ScriptPath() + `" defer></script>`,
 		`<span class="brand-stat">Stat</span><span class="brand-lite">Lite</span>`,
@@ -107,6 +108,63 @@ func TestDashboardScriptServedAsJavaScript(t *testing.T) {
 	}
 	if string(body) != dashboard.Script {
 		t.Fatal("served dashboard script does not match embedded asset")
+	}
+}
+
+func TestDashboardVendorAssetsServedLocally(t *testing.T) {
+	statlite := New("127.0.0.1:0", nil)
+	server := httptest.NewServer(statlite.httpServer.Handler)
+	defer server.Close()
+
+	tests := []struct {
+		path        string
+		contentType string
+		contains    string
+	}{
+		{path: dashboard.ChartJSPath, contentType: "application/javascript; charset=utf-8", contains: "Chart.js"},
+		{path: dashboard.OrbitronFontPath, contentType: "font/woff2"},
+	}
+	for _, tt := range tests {
+		resp, err := http.Get(server.URL + tt.path)
+		if err != nil {
+			t.Fatalf("vendor asset request %s: %v", tt.path, err)
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			t.Fatalf("read vendor asset %s: %v", tt.path, readErr)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("vendor asset %s status = %d, want 200", tt.path, resp.StatusCode)
+		}
+		if got := resp.Header.Get("Content-Type"); got != tt.contentType {
+			t.Errorf("vendor asset %s content-type = %q, want %q", tt.path, got, tt.contentType)
+		}
+		if len(body) == 0 {
+			t.Errorf("vendor asset %s is empty", tt.path)
+		}
+		if tt.contains != "" && !strings.Contains(string(body), tt.contains) {
+			t.Errorf("vendor asset %s missing %q", tt.path, tt.contains)
+		}
+		if tt.path == dashboard.ChartJSPath && strings.Contains(string(body), "sourceMappingURL") {
+			t.Error("vendored Chart.js retains an unserved source map reference")
+		}
+		if got := resp.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+			t.Errorf("vendor asset %s cache-control = %q", tt.path, got)
+		}
+	}
+	for _, oldPath := range []string{
+		"/static/vendor/chart.umd.min.js",
+		"/static/fonts/orbitron-700.woff2",
+	} {
+		resp, err := http.Get(server.URL + oldPath)
+		if err != nil {
+			t.Fatalf("old vendor asset request %s: %v", oldPath, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("old vendor asset %s status = %d, want 404", oldPath, resp.StatusCode)
+		}
 	}
 }
 

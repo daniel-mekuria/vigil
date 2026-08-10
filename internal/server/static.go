@@ -29,3 +29,18 @@ func (s *Server) handleStatliteIcon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=604800")
 	w.Write(dashboard.StatliteIconPNG)
 }
+
+func (s *Server) handleDashboardVendor(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case dashboard.ChartJSPath:
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		_, _ = w.Write(dashboard.ChartJS)
+	case dashboard.OrbitronFontPath:
+		w.Header().Set("Content-Type", "font/woff2")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		_, _ = w.Write(dashboard.OrbitronFontWoff2)
+	default:
+		http.NotFound(w, r)
+	}
+}

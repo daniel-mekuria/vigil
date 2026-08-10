@@ -5,6 +5,9 @@ Detailed release notes are generated on GitHub from the commit history.
 
 ## Unreleased
 
+- Vendored Chart.js and Orbitron font assets into the dashboard so it renders
+  without external CDN access, including in offline and air-gapped environments.
+
 ## v0.2.2 — 2026-08-07
 
 - Added the StatLite version to the dashboard header.
