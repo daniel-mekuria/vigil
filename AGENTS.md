@@ -60,6 +60,15 @@ verification command for unrelated changes.
 
 For large or ambiguous changes, propose the smallest independently testable slice first.
 
+## Related Repositories and Release Tooling
+
+Use `repo-map` to discover related repositories and their local paths and broad
+roles. Use `repo-map commands` to discover shared agent-oriented tools available
+on `PATH`, including low-noise build and test wrappers and browser helpers;
+invoke them by name. Project-specific workflow instructions remain
+authoritative. When a Homebrew formula update is in scope, use
+`repo-map get homebrew-tap` to locate the shared PVRLabs tap.
+
 ## Capitalization Convention
 
 Use `StatLite` for user-facing product prose. Use `statlite` for internal identifiers, package/module paths, binary names, config filenames, URLs, JSON fields, target type values, and command examples.
